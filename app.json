@@ -6,19 +6,46 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jimtakashimamaker.golfbetssdk56",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
+
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "package": "com.jimtakashimamaker.golfbetssdk56"
     },
+
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+
+    "extra": {
+      "eas": {
+        "projectId": "4d1a21b0-15b1-4b60-b377-524bed97c820"
+      }
+    },
+
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "buildToolsVersion": "35.0.0",
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35
+          }
+        }
+      ]
+    ]
   }
 }
