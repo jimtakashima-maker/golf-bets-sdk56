@@ -15,7 +15,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
-      - name: Use local Excpo CLI
+      - name: Use local Expo CLI
         run: nnpx expo --version
 
       - name: Install dependencies
