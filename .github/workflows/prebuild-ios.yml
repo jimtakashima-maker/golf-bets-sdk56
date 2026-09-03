@@ -15,15 +15,14 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
-
-      - name: Install Expo CLI
-        run: npm install -g expo-cli
+      - name: Use local Excpo CLI
+        run: nnpx expo --version
 
       - name: Install dependencies
         run: npm install
 
       - name: Run Expo Prebuild
-        run: npx expo prebuild --clean
+        run: EXPO_USE_PRECOMPILED_MODULES=0 npx expo prebuild --clean
 
       - name: Upload iOS folder
         uses: actions/upload-artifact@v4
