@@ -1,0 +1,32 @@
+name: Expo iOS Prebuild
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prebuild-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Expo CLI
+        run: npm install -g expo-cli
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Expo Prebuild
+        run: npx expo prebuild --clean
+
+      - name: Upload iOS folder
+        uses: actions/upload-artifact@v3
+        with:
+          name: ios-folder
+          path: ios/
