@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 18
       - name: Use local Expo CLI
-        run: nnpx expo --version
+        run: npx expo --version
 
       - name: Install dependencies
         run: npm install
