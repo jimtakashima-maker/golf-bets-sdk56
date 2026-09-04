@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 18
           
-        name: force default npm registry
+      - name: force default npm registry
         run: npm config set registry https://registry.npmjs.org/
 
       - name: Use local Expo CLI
