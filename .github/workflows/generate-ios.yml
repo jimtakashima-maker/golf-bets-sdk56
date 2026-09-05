@@ -31,7 +31,7 @@ jobs:
         run: sudo gem install cocoapods
 
       - name: Run Expo prebuild
-        run: npx expo prebuild --clean
+        run: EXPO_USE_PRECOMPILED_MODULES=0 npx expo prebuild --clean
 
       - name: Install Pods
         run: |
