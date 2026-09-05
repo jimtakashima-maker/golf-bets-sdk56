@@ -42,6 +42,11 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
+          
+          # Remove Pods before committing (Pods contain 100+ MB files)
+          rm -rf ios/Pods
+
+          # Force-add iOS folder even if ignored
           git add -f ios
           git commit -m "Generate full iOS folder via macOS prebuild" || echo "No changes to commit"
 
