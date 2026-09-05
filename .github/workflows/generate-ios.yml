@@ -30,7 +30,7 @@ jobs:
       - name: Install CocoaPods
         run: sudo gem install cocoapods
 
-      - name: Run Expo prebuild
+      - name: Run Expo prebuild (disable precompiled modules)
         run: EXPO_USE_PRECOMPILED_MODULES=0 npx expo prebuild --clean
 
       - name: Install Pods
