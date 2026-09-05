@@ -3,6 +3,9 @@ name: Generate iOS Folder
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-ios:
     runs-on: macos-latest
