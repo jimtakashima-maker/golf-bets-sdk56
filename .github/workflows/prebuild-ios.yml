@@ -1,7 +1,10 @@
-name: Expo iOS Prebuild
+name: Prebuild iOS
 
 on:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   prebuild-ios:
@@ -9,30 +12,44 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Setup Node
-        uses: actions/setup-node@v3
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Force default npm registry
-        run: npm config set registry https://registry.npmjs.org/
+      - name: Install Expo CLI
+        run: npm install -g expo-cli
 
-      - name: Use local Expo CLI
-        run: npx expo --version
-
-      - name: Install dependencies
+      - name: Install project dependencies
         run: npm install
 
-      - name: Remove existing iOS folder
-        run: rm -rf ios
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
 
-      - name: Run Expo Prebuild
-        run: EXPO_USE_PRECOMPILED_MODULES=0 npx expo prebuild --clean
+      - name: Run Expo prebuild
+        run: npx expo prebuild --clean
 
-      - name: Upload iOS folder
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-folder
-          path: ios/
+      - name: Install Pods
+        run: |
+          cd ios
+          pod install
+
+      - name: Commit iOS folder (excluding Pods)
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          # Remove Pods before committing (Pods contain 100+ MB files)
+          rm -rf ios/Pods
+
+          # Force-add iOS folder even if ignored
+          git add -f ios
+
+          git commit -m "Prebuild iOS folder (without Pods)" || echo "No changes to commit"
+
+      - name: Push changes
+        run: git push
