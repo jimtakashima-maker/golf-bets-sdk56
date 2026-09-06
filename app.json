@@ -46,11 +46,12 @@
             "targetSdkVersion": 35
           },
           "ios": {
-            "useFrameworks": "dynamic",
-            "EXPO_USE_PRECOMPILED_MODULES": "false"
+            "useFrameworks": "dynamic"
           }
         }
       ]
-    ]
+    ],
+
+    "EXPO_USE_PRECOMPILED_MODULES": false
   }
 }
