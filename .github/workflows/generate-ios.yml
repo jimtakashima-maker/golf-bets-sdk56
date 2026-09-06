@@ -45,6 +45,7 @@ jobs:
           
           # Remove Pods before committing (Pods contain 100+ MB files)
           rm -rf ios/Pods
+          rm -f ios/Podfile.lock
 
           # Force-add iOS folder even if ignored
           git add -f ios
