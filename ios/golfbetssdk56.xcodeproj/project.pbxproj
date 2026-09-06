@@ -8,28 +8,28 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		16DDC06C10D3A02AA7F7D9D9 /* Pods_golfbetssdk56.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA6E93C511552F7D2C3AE21F /* Pods_golfbetssdk56.framework */; };
+		358D667CAAE51D4646B8F171 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEEEFF1EB3109FB684A81AD5 /* ExpoModulesProvider.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
+		8885C487C4E8B3F04F8DADDB /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A0561CA335E1D68BED4265D1 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		E34FCBA496D2E30958E60819 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F7870E8FCADFCEA64F775C09 /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-		FF152C9EB7BEEEDDDAAC633B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9E231F3DE4D25BDDBE481D4 /* ExpoModulesProvider.swift */; };
+		F9B73BAEBD52B54048319B18 /* Pods_golfbetssdk56.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BDB32AC5959C6F86CBD8027F /* Pods_golfbetssdk56.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* golfbetssdk56.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = golfbetssdk56.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = golfbetssdk56/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = golfbetssdk56/Info.plist; sourceTree = "<group>"; };
-		1889F64B51A34416AEE879DE /* Pods-golfbetssdk56.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-golfbetssdk56.release.xcconfig"; path = "Target Support Files/Pods-golfbetssdk56/Pods-golfbetssdk56.release.xcconfig"; sourceTree = "<group>"; };
-		314D92A5607EC3B724D0CBA0 /* Pods-golfbetssdk56.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-golfbetssdk56.debug.xcconfig"; path = "Target Support Files/Pods-golfbetssdk56/Pods-golfbetssdk56.debug.xcconfig"; sourceTree = "<group>"; };
+		A0561CA335E1D68BED4265D1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = golfbetssdk56/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A265BE16B227D7B4EC768B52 /* Pods-golfbetssdk56.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-golfbetssdk56.debug.xcconfig"; path = "Target Support Files/Pods-golfbetssdk56/Pods-golfbetssdk56.debug.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = golfbetssdk56/SplashScreen.storyboard; sourceTree = "<group>"; };
-		B9E231F3DE4D25BDDBE481D4 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-golfbetssdk56/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		DA6E93C511552F7D2C3AE21F /* Pods_golfbetssdk56.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_golfbetssdk56.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		BDB32AC5959C6F86CBD8027F /* Pods_golfbetssdk56.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_golfbetssdk56.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2B4B05E2BFF09A8D1D14600 /* Pods-golfbetssdk56.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-golfbetssdk56.release.xcconfig"; path = "Target Support Files/Pods-golfbetssdk56/Pods-golfbetssdk56.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		EEEEFF1EB3109FB684A81AD5 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-golfbetssdk56/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = golfbetssdk56/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* golfbetssdk56-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "golfbetssdk56-Bridging-Header.h"; path = "golfbetssdk56/golfbetssdk56-Bridging-Header.h"; sourceTree = "<group>"; };
-		F7870E8FCADFCEA64F775C09 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = golfbetssdk56/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				16DDC06C10D3A02AA7F7D9D9 /* Pods_golfbetssdk56.framework in Frameworks */,
+				F9B73BAEBD52B54048319B18 /* Pods_golfbetssdk56.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,7 +53,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				F7870E8FCADFCEA64F775C09 /* PrivacyInfo.xcprivacy */,
+				A0561CA335E1D68BED4265D1 /* PrivacyInfo.xcprivacy */,
 			);
 			name = golfbetssdk56;
 			sourceTree = "<group>";
@@ -62,7 +62,7 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				DA6E93C511552F7D2C3AE21F /* Pods_golfbetssdk56.framework */,
+				BDB32AC5959C6F86CBD8027F /* Pods_golfbetssdk56.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -81,8 +81,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				CBE8E6780F8552D9FBC4C828 /* Pods */,
-				E6CBF1E9807E52475C8B596F /* ExpoModulesProviders */,
+				E386F04AB6DD4BB1D0D22411 /* Pods */,
+				9809421E78317F310B2373CB /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -97,6 +97,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		9809421E78317F310B2373CB /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				D93061C98151234D457F19DD /* golfbetssdk56 */,
+			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
 			isa = PBXGroup;
 			children = (
@@ -106,30 +114,22 @@
 			path = golfbetssdk56/Supporting;
 			sourceTree = "<group>";
 		};
-		C6AC4D8BE6F1A5A57AD86F39 /* golfbetssdk56 */ = {
+		D93061C98151234D457F19DD /* golfbetssdk56 */ = {
 			isa = PBXGroup;
 			children = (
-				B9E231F3DE4D25BDDBE481D4 /* ExpoModulesProvider.swift */,
+				EEEEFF1EB3109FB684A81AD5 /* ExpoModulesProvider.swift */,
 			);
 			name = golfbetssdk56;
 			sourceTree = "<group>";
 		};
-		CBE8E6780F8552D9FBC4C828 /* Pods */ = {
+		E386F04AB6DD4BB1D0D22411 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				314D92A5607EC3B724D0CBA0 /* Pods-golfbetssdk56.debug.xcconfig */,
-				1889F64B51A34416AEE879DE /* Pods-golfbetssdk56.release.xcconfig */,
+				A265BE16B227D7B4EC768B52 /* Pods-golfbetssdk56.debug.xcconfig */,
+				D2B4B05E2BFF09A8D1D14600 /* Pods-golfbetssdk56.release.xcconfig */,
 			);
 			name = Pods;
 			path = Pods;
-			sourceTree = "<group>";
-		};
-		E6CBF1E9807E52475C8B596F /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				C6AC4D8BE6F1A5A57AD86F39 /* golfbetssdk56 */,
-			);
-			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -140,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "golfbetssdk56" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				8346BFA008DAB9AA54AAFC66 /* [Expo] Configure project */,
+				B61C738954AF984EF63CFC23 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				5F35AC1151E633F607F3E163 /* [CP] Embed Pods Frameworks */,
+				A4C36CCEDB9FD3C44BD7F353 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -196,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				E34FCBA496D2E30958E60819 /* PrivacyInfo.xcprivacy in Resources */,
+				8885C487C4E8B3F04F8DADDB /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -242,7 +242,37 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		5F35AC1151E633F607F3E163 /* [CP] Embed Pods Frameworks */ = {
+		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-golfbetssdk56/Pods-golfbetssdk56-resources.sh",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-launcher/EXDevLauncher.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-menu/EXDevMenu.bundle",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevLauncher.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevMenu.bundle",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-golfbetssdk56/Pods-golfbetssdk56-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		A4C36CCEDB9FD3C44BD7F353 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -274,37 +304,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-golfbetssdk56/Pods-golfbetssdk56-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-golfbetssdk56/Pods-golfbetssdk56-resources.sh",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-launcher/EXDevLauncher.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-menu/EXDevMenu.bundle",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevLauncher.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevMenu.bundle",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-golfbetssdk56/Pods-golfbetssdk56-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		8346BFA008DAB9AA54AAFC66 /* [Expo] Configure project */ = {
+		B61C738954AF984EF63CFC23 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -336,7 +336,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				FF152C9EB7BEEEDDDAAC633B /* ExpoModulesProvider.swift in Sources */,
+				358D667CAAE51D4646B8F171 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -345,7 +345,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 314D92A5607EC3B724D0CBA0 /* Pods-golfbetssdk56.debug.xcconfig */;
+			baseConfigurationReference = A265BE16B227D7B4EC768B52 /* Pods-golfbetssdk56.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -382,7 +382,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 1889F64B51A34416AEE879DE /* Pods-golfbetssdk56.release.xcconfig */;
+			baseConfigurationReference = D2B4B05E2BFF09A8D1D14600 /* Pods-golfbetssdk56.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
