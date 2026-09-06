@@ -46,7 +46,7 @@
             "targetSdkVersion": 35
           },
           "ios": {
-            "useFrameworks": "dynamic",
+            "useFrameworks": "static",
             "usePrecompiledModules": false
           }
         }
