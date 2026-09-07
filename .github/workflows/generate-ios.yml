@@ -33,8 +33,8 @@ jobs:
       - name: Delete existing iOS folder
         run: rm -rf ios
 
-      - name: Run Expo prebuild (disable precompiled modules)
-        run: EXPO_USE_PRECOMPILED_MODULES=0 npx expo prebuild --clean
+      - name: Run Expo prebuild
+        run: npx expo prebuild --clean
 
       - name: Install Pods
         run: |
