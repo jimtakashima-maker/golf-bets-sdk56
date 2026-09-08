@@ -22,3 +22,17 @@ allprojects {
 
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
+
+subprojects { subproject ->
+    afterEvaluate {
+        if (subproject.name.contains("expo")) {
+            subproject.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+                kotlinOptions {
+                    jvmTarget = "1.8"
+                    apiVersion = "2.0"
+                    languageVersion = "2.0"
+                }
+            }
+        }
+    }
+}
