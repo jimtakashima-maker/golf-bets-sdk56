@@ -6,9 +6,9 @@ buildscript {
     mavenCentral()
   }
   dependencies {
-    classpath("com.android.tools.build:gradle:8.2.2")
-    classpath("com.facebook.react:react-native-gradle-plugin")
-    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21")
+    classpath('com.android.tools.build:gradle')
+    classpath('com.facebook.react:react-native-gradle-plugin')
+    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
   }
 }
 
@@ -19,19 +19,6 @@ allprojects {
     maven { url 'https://www.jitpack.io' }
   }
 }
-subprojects { subproject ->
-    if (subproject.name.contains("expo")) {
-        subproject.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-            kotlinOptions {
-                jvmTarget = "17"
-                apiVersion = "2.0"
-                languageVersion = "2.0"
-            }
-        }
-    }
-}
 
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
-
-
