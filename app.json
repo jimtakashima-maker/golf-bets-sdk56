@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jimtakashimamaker.golfbetssdk56",
@@ -15,7 +14,6 @@
         "ITSAppUsesNonExemptEncryption": false
       }
     },
-
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -25,17 +23,28 @@
       },
       "package": "com.jimtakashimamaker.golfbetssdk56"
     },
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "extra": {
       "eas": {
         "projectId": "4d1a21b0-15b1-4b60-b377-524bed97c820"
+      },
+      "API_URL": "http://localhost:3000",
+      "ENV": "development",
+      "router": {
+        "origin": "expo"
       }
     },
-
-    "plugins": []
-          }
-        }
+    "plugins": [],
+    "jsEngine": "hermes",
+    "updates": {
+      "runtimeVersion": "1.0.0",
+      "fallbackToCacheTimeout": 0
+    },
+    "scheme": "golfbets",
+    "splash": {
+      "image": "./assets/splash.png"
+    }
+  }
+}
