@@ -51,6 +51,11 @@ jobs:
 
           git commit -m "Prebuild iOS folder (without Pods)" || echo "No changes to commit"
 
+      - name: Discard unrelated generated changes
+        run: |
+          git checkout -- .
+          git clean -fd
+
       - name: Push changes
         run: |
           git fetch origin main

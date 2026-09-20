@@ -54,6 +54,11 @@ jobs:
           git add -f ios
           git commit -m "Generate full iOS folder via macOS prebuild" || echo "No changes to commit"
 
+      - name: Discard unrelated generated changes
+        run: |
+          git checkout -- .
+          git clean -fd
+
       - name: Push changes
         run: |
           git fetch origin main
