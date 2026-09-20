@@ -1,50 +1,65 @@
 {
   "expo": {
-    "name": "golf-bets-sdk56",
+    "name": "Then Press Me",
     "slug": "golf-bets-sdk56",
+    "scheme": "thenpressme",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jimtakashimamaker.golfbetssdk56",
       "buildNumber": "1.0.0",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Used to photograph a course scorecard so hole par and handicap index can be read automatically.",
+        "NSPhotoLibraryUsageDescription": "Used to pick a photo of a course scorecard so hole par and handicap index can be read automatically."
       }
     },
+
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#1a7f37",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundImage": "./assets/android-icon-background.png"
       },
       "package": "com.jimtakashimamaker.golfbetssdk56"
     },
+
     "web": {
       "favicon": "./assets/favicon.png"
     },
+
     "extra": {
       "eas": {
         "projectId": "4d1a21b0-15b1-4b60-b377-524bed97c820"
-      },
-      "API_URL": "http://localhost:3000",
-      "ENV": "development",
-      "router": {
-        "origin": "expo"
       }
     },
-    "plugins": [],
-    "jsEngine": "hermes",
-    "updates": {
-      "runtimeVersion": "1.0.0",
-      "fallbackToCacheTimeout": 0
-    },
-    "scheme": "golfbets",
-    "splash": {
-      "image": "./assets/splash.png"
-    }
+
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Used to pick a photo of a course scorecard so hole par and handicap index can be read automatically.",
+          "cameraPermission": "Used to photograph a course scorecard so hole par and handicap index can be read automatically."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "buildToolsVersion": "36.0.0",
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36
+          },
+          "ios": {
+            "useFrameworks": "static",
+            "usePrecompiledModules": false
+          }
+        }
+      ]
+    ]
   }
 }

@@ -1,0 +1,852 @@
+[
+  {
+    "name": "Glen Oaks Golf Course (Farmington Hills)",
+    "totalHoles": 18,
+    "holes": {
+      "1": {
+        "par": 4,
+        "handicapIndex": 1
+      },
+      "2": {
+        "par": 4,
+        "handicapIndex": 7
+      },
+      "3": {
+        "par": 4,
+        "handicapIndex": 15
+      },
+      "4": {
+        "par": 3,
+        "handicapIndex": 5
+      },
+      "5": {
+        "par": 5,
+        "handicapIndex": 9
+      },
+      "6": {
+        "par": 3,
+        "handicapIndex": 3
+      },
+      "7": {
+        "par": 5,
+        "handicapIndex": 13
+      },
+      "8": {
+        "par": 4,
+        "handicapIndex": 11
+      },
+      "9": {
+        "par": 3,
+        "handicapIndex": 17
+      },
+      "10": {
+        "par": 3,
+        "handicapIndex": 12
+      },
+      "11": {
+        "par": 4,
+        "handicapIndex": 18
+      },
+      "12": {
+        "par": 4,
+        "handicapIndex": 4
+      },
+      "13": {
+        "par": 5,
+        "handicapIndex": 16
+      },
+      "14": {
+        "par": 4,
+        "handicapIndex": 2
+      },
+      "15": {
+        "par": 5,
+        "handicapIndex": 10
+      },
+      "16": {
+        "par": 3,
+        "handicapIndex": 8
+      },
+      "17": {
+        "par": 3,
+        "handicapIndex": 14
+      },
+      "18": {
+        "par": 4,
+        "handicapIndex": 6
+      }
+    },
+    "tees": [
+      {
+        "name": "Back",
+        "rating": 69.7,
+        "slope": 126,
+        "yardage": 6051
+      },
+      {
+        "name": "Middle",
+        "rating": 68.1,
+        "slope": 125,
+        "yardage": 5714
+      },
+      {
+        "name": "Forward",
+        "rating": 64.1,
+        "slope": 110,
+        "yardage": 4866
+      },
+      {
+        "name": "Front",
+        "rating": 62.4,
+        "slope": 105,
+        "yardage": 4468
+      }
+    ]
+  },
+  {
+    "name": "Rackham Golf Course (Huntington Woods)",
+    "totalHoles": 18,
+    "holes": {
+      "1": {
+        "par": 5,
+        "handicapIndex": 3
+      },
+      "2": {
+        "par": 4,
+        "handicapIndex": 11
+      },
+      "3": {
+        "par": 4,
+        "handicapIndex": 9
+      },
+      "4": {
+        "par": 4,
+        "handicapIndex": 7
+      },
+      "5": {
+        "par": 3,
+        "handicapIndex": 15
+      },
+      "6": {
+        "par": 4,
+        "handicapIndex": 13
+      },
+      "7": {
+        "par": 5,
+        "handicapIndex": 6
+      },
+      "8": {
+        "par": 3,
+        "handicapIndex": 17
+      },
+      "9": {
+        "par": 4,
+        "handicapIndex": 5
+      },
+      "10": {
+        "par": 4,
+        "handicapIndex": 2
+      },
+      "11": {
+        "par": 4,
+        "handicapIndex": 8
+      },
+      "12": {
+        "par": 4,
+        "handicapIndex": 16
+      },
+      "13": {
+        "par": 3,
+        "handicapIndex": 10
+      },
+      "14": {
+        "par": 5,
+        "handicapIndex": 12
+      },
+      "15": {
+        "par": 4,
+        "handicapIndex": 14
+      },
+      "16": {
+        "par": 3,
+        "handicapIndex": 4
+      },
+      "17": {
+        "par": 4,
+        "handicapIndex": 18
+      },
+      "18": {
+        "par": 4,
+        "handicapIndex": 1
+      }
+    },
+    "tees": [
+      {
+        "name": "Blue",
+        "rating": 70.8,
+        "slope": 118,
+        "yardage": 6555
+      },
+      {
+        "name": "White",
+        "rating": 69.2,
+        "slope": 116,
+        "yardage": 6253
+      },
+      {
+        "name": "Red",
+        "rating": 65.3,
+        "slope": 109,
+        "yardage": 5413
+      }
+    ]
+  },
+  {
+    "name": "The Orchards Golf Club (Washington Township)",
+    "totalHoles": 18,
+    "holes": {
+      "1": {
+        "par": 4,
+        "handicapIndex": 7
+      },
+      "2": {
+        "par": 3,
+        "handicapIndex": 15
+      },
+      "3": {
+        "par": 5,
+        "handicapIndex": 5
+      },
+      "4": {
+        "par": 4,
+        "handicapIndex": 11
+      },
+      "5": {
+        "par": 3,
+        "handicapIndex": 17
+      },
+      "6": {
+        "par": 5,
+        "handicapIndex": 3
+      },
+      "7": {
+        "par": 4,
+        "handicapIndex": 9
+      },
+      "8": {
+        "par": 4,
+        "handicapIndex": 13
+      },
+      "9": {
+        "par": 4,
+        "handicapIndex": 1
+      },
+      "10": {
+        "par": 4,
+        "handicapIndex": 6
+      },
+      "11": {
+        "par": 5,
+        "handicapIndex": 2
+      },
+      "12": {
+        "par": 3,
+        "handicapIndex": 16
+      },
+      "13": {
+        "par": 4,
+        "handicapIndex": 12
+      },
+      "14": {
+        "par": 3,
+        "handicapIndex": 18
+      },
+      "15": {
+        "par": 5,
+        "handicapIndex": 8
+      },
+      "16": {
+        "par": 4,
+        "handicapIndex": 10
+      },
+      "17": {
+        "par": 4,
+        "handicapIndex": 4
+      },
+      "18": {
+        "par": 4,
+        "handicapIndex": 14
+      }
+    },
+    "tees": [
+      {
+        "name": "Championship",
+        "rating": 74.9,
+        "slope": 144,
+        "yardage": 7026
+      },
+      {
+        "name": "Tournament",
+        "rating": 71.8,
+        "slope": 137,
+        "yardage": 6487
+      },
+      {
+        "name": "Invitational",
+        "rating": 69.2,
+        "slope": 128,
+        "yardage": 5936
+      },
+      {
+        "name": "Competition",
+        "rating": 65.4,
+        "slope": 113,
+        "yardage": 5164
+      }
+    ]
+  },
+  {
+    "name": "Fox Hills Golf & Banquet Center - Golden Fox (Plymouth)",
+    "totalHoles": 18,
+    "holes": {
+      "1": {
+        "par": 4,
+        "handicapIndex": 3
+      },
+      "2": {
+        "par": 4,
+        "handicapIndex": 13
+      },
+      "3": {
+        "par": 3,
+        "handicapIndex": 17
+      },
+      "4": {
+        "par": 4,
+        "handicapIndex": 11
+      },
+      "5": {
+        "par": 5,
+        "handicapIndex": 5
+      },
+      "6": {
+        "par": 3,
+        "handicapIndex": 15
+      },
+      "7": {
+        "par": 4,
+        "handicapIndex": 7
+      },
+      "8": {
+        "par": 5,
+        "handicapIndex": 1
+      },
+      "9": {
+        "par": 4,
+        "handicapIndex": 9
+      },
+      "10": {
+        "par": 4,
+        "handicapIndex": 12
+      },
+      "11": {
+        "par": 5,
+        "handicapIndex": 2
+      },
+      "12": {
+        "par": 3,
+        "handicapIndex": 14
+      },
+      "13": {
+        "par": 4,
+        "handicapIndex": 18
+      },
+      "14": {
+        "par": 3,
+        "handicapIndex": 16
+      },
+      "15": {
+        "par": 4,
+        "handicapIndex": 10
+      },
+      "16": {
+        "par": 4,
+        "handicapIndex": 4
+      },
+      "17": {
+        "par": 5,
+        "handicapIndex": 6
+      },
+      "18": {
+        "par": 4,
+        "handicapIndex": 8
+      }
+    },
+    "tees": [
+      {
+        "name": "Black",
+        "rating": 73.3,
+        "slope": 140,
+        "yardage": 6783
+      },
+      {
+        "name": "Gold",
+        "rating": 71.7,
+        "slope": 135,
+        "yardage": 6393
+      },
+      {
+        "name": "Blue",
+        "rating": 70.1,
+        "slope": 127,
+        "yardage": 6029
+      },
+      {
+        "name": "White",
+        "rating": 66.0,
+        "slope": 118,
+        "yardage": 5504
+      },
+      {
+        "name": "Green",
+        "rating": 64.6,
+        "slope": 116,
+        "yardage": 5049
+      }
+    ]
+  },
+  {
+    "name": "Indianwood Golf & Country Club - Old Course (Lake Orion)",
+    "totalHoles": 18,
+    "holes": {
+      "1": {
+        "par": 5,
+        "handicapIndex": 14
+      },
+      "2": {
+        "par": 4,
+        "handicapIndex": 10
+      },
+      "3": {
+        "par": 3,
+        "handicapIndex": 18
+      },
+      "4": {
+        "par": 4,
+        "handicapIndex": 6
+      },
+      "5": {
+        "par": 3,
+        "handicapIndex": 16
+      },
+      "6": {
+        "par": 4,
+        "handicapIndex": 2
+      },
+      "7": {
+        "par": 4,
+        "handicapIndex": 12
+      },
+      "8": {
+        "par": 4,
+        "handicapIndex": 4
+      },
+      "9": {
+        "par": 4,
+        "handicapIndex": 8
+      },
+      "10": {
+        "par": 4,
+        "handicapIndex": 11
+      },
+      "11": {
+        "par": 4,
+        "handicapIndex": 13
+      },
+      "12": {
+        "par": 4,
+        "handicapIndex": 1
+      },
+      "13": {
+        "par": 3,
+        "handicapIndex": 17
+      },
+      "14": {
+        "par": 4,
+        "handicapIndex": 5
+      },
+      "15": {
+        "par": 5,
+        "handicapIndex": 9
+      },
+      "16": {
+        "par": 4,
+        "handicapIndex": 3
+      },
+      "17": {
+        "par": 3,
+        "handicapIndex": 15
+      },
+      "18": {
+        "par": 4,
+        "handicapIndex": 7
+      }
+    },
+    "tees": [
+      {
+        "name": "Championship",
+        "rating": 74.9,
+        "slope": 140,
+        "yardage": 6928
+      },
+      {
+        "name": "Hybrid",
+        "rating": 74.5,
+        "slope": 139,
+        "yardage": 6833
+      },
+      {
+        "name": "Back",
+        "rating": 72.5,
+        "slope": 135,
+        "yardage": 6406
+      },
+      {
+        "name": "Middle",
+        "rating": 70.1,
+        "slope": 128,
+        "yardage": 5970
+      },
+      {
+        "name": "Forward",
+        "rating": 66.6,
+        "slope": 121,
+        "yardage": 5257
+      }
+    ]
+  },
+  {
+    "name": "Warwick Hills Golf and Country Club (Grand Blanc)",
+    "totalHoles": 18,
+    "holes": {
+      "1": {
+        "par": 5,
+        "handicapIndex": 3
+      },
+      "2": {
+        "par": 4,
+        "handicapIndex": 7
+      },
+      "3": {
+        "par": 3,
+        "handicapIndex": 17
+      },
+      "4": {
+        "par": 4,
+        "handicapIndex": 9
+      },
+      "5": {
+        "par": 4,
+        "handicapIndex": 13
+      },
+      "6": {
+        "par": 4,
+        "handicapIndex": 11
+      },
+      "7": {
+        "par": 5,
+        "handicapIndex": 1
+      },
+      "8": {
+        "par": 3,
+        "handicapIndex": 15
+      },
+      "9": {
+        "par": 4,
+        "handicapIndex": 5
+      },
+      "10": {
+        "par": 4,
+        "handicapIndex": 10
+      },
+      "11": {
+        "par": 3,
+        "handicapIndex": 18
+      },
+      "12": {
+        "par": 4,
+        "handicapIndex": 12
+      },
+      "13": {
+        "par": 5,
+        "handicapIndex": 2
+      },
+      "14": {
+        "par": 4,
+        "handicapIndex": 14
+      },
+      "15": {
+        "par": 4,
+        "handicapIndex": 8
+      },
+      "16": {
+        "par": 5,
+        "handicapIndex": 4
+      },
+      "17": {
+        "par": 3,
+        "handicapIndex": 16
+      },
+      "18": {
+        "par": 4,
+        "handicapIndex": 6
+      }
+    },
+    "tees": [
+      {
+        "name": "Black",
+        "rating": 74.5,
+        "slope": 136,
+        "yardage": 7127
+      },
+      {
+        "name": "Blue",
+        "rating": 73.1,
+        "slope": 133,
+        "yardage": 6833
+      },
+      {
+        "name": "White",
+        "rating": 71.4,
+        "slope": 131,
+        "yardage": 6489
+      },
+      {
+        "name": "Green",
+        "rating": 69.7,
+        "slope": 127,
+        "yardage": 5884
+      },
+      {
+        "name": "Red",
+        "rating": 67.6,
+        "slope": 118,
+        "yardage": 5142
+      }
+    ]
+  },
+  {
+    "name": "Prestwick Village Golf Club (Highland)",
+    "totalHoles": 18,
+    "holes": {
+      "1": {
+        "par": 5,
+        "handicapIndex": 13
+      },
+      "2": {
+        "par": 4,
+        "handicapIndex": 7
+      },
+      "3": {
+        "par": 3,
+        "handicapIndex": 17
+      },
+      "4": {
+        "par": 5,
+        "handicapIndex": 5
+      },
+      "5": {
+        "par": 4,
+        "handicapIndex": 1
+      },
+      "6": {
+        "par": 4,
+        "handicapIndex": 9
+      },
+      "7": {
+        "par": 4,
+        "handicapIndex": 11
+      },
+      "8": {
+        "par": 3,
+        "handicapIndex": 15
+      },
+      "9": {
+        "par": 4,
+        "handicapIndex": 3
+      },
+      "10": {
+        "par": 5,
+        "handicapIndex": 6
+      },
+      "11": {
+        "par": 3,
+        "handicapIndex": 16
+      },
+      "12": {
+        "par": 4,
+        "handicapIndex": 4
+      },
+      "13": {
+        "par": 4,
+        "handicapIndex": 12
+      },
+      "14": {
+        "par": 4,
+        "handicapIndex": 14
+      },
+      "15": {
+        "par": 5,
+        "handicapIndex": 10
+      },
+      "16": {
+        "par": 4,
+        "handicapIndex": 2
+      },
+      "17": {
+        "par": 3,
+        "handicapIndex": 18
+      },
+      "18": {
+        "par": 4,
+        "handicapIndex": 8
+      }
+    },
+    "tees": [
+      {
+        "name": "Gold",
+        "rating": 74.5,
+        "slope": 137,
+        "yardage": 7142
+      },
+      {
+        "name": "Blue",
+        "rating": 72.0,
+        "slope": 133,
+        "yardage": 6634
+      },
+      {
+        "name": "Blue/White",
+        "rating": 70.4,
+        "slope": 130,
+        "yardage": 6337
+      },
+      {
+        "name": "White",
+        "rating": 69.3,
+        "slope": 124,
+        "yardage": 5984
+      },
+      {
+        "name": "Red",
+        "rating": 68.7,
+        "slope": 118,
+        "yardage": 5222
+      }
+    ]
+  },
+  {
+    "name": "Radrick Farms Golf Course (Ann Arbor, University of Michigan)",
+    "totalHoles": 18,
+    "holes": {
+      "1": {
+        "par": 5,
+        "handicapIndex": 14
+      },
+      "2": {
+        "par": 4,
+        "handicapIndex": 8
+      },
+      "3": {
+        "par": 4,
+        "handicapIndex": 4
+      },
+      "4": {
+        "par": 3,
+        "handicapIndex": 18
+      },
+      "5": {
+        "par": 5,
+        "handicapIndex": 12
+      },
+      "6": {
+        "par": 4,
+        "handicapIndex": 2
+      },
+      "7": {
+        "par": 3,
+        "handicapIndex": 6
+      },
+      "8": {
+        "par": 4,
+        "handicapIndex": 16
+      },
+      "9": {
+        "par": 4,
+        "handicapIndex": 10
+      },
+      "10": {
+        "par": 4,
+        "handicapIndex": 7
+      },
+      "11": {
+        "par": 3,
+        "handicapIndex": 11
+      },
+      "12": {
+        "par": 5,
+        "handicapIndex": 17
+      },
+      "13": {
+        "par": 4,
+        "handicapIndex": 5
+      },
+      "14": {
+        "par": 4,
+        "handicapIndex": 1
+      },
+      "15": {
+        "par": 3,
+        "handicapIndex": 15
+      },
+      "16": {
+        "par": 5,
+        "handicapIndex": 9
+      },
+      "17": {
+        "par": 4,
+        "handicapIndex": 3
+      },
+      "18": {
+        "par": 4,
+        "handicapIndex": 13
+      }
+    },
+    "tees": [
+      {
+        "name": "Maize",
+        "rating": 73.9,
+        "slope": 136,
+        "yardage": 6967
+      },
+      {
+        "name": "Blue",
+        "rating": 71.1,
+        "slope": 129,
+        "yardage": 6442
+      },
+      {
+        "name": "Silver",
+        "rating": 70.3,
+        "slope": 128,
+        "yardage": 6253
+      },
+      {
+        "name": "White",
+        "rating": 68.3,
+        "slope": 124,
+        "yardage": 5787
+      }
+    ]
+  }
+]

@@ -1,0 +1,347 @@
+import { useEffect, useState } from 'react';
+import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { useRoundState, HandicapType, MAX_HANDICAP } from '../state/useRoundState';
+import PreRoundBackground from '../components/PreRoundBackground';
+import AppLogo from '../components/AppLogo';
+import BackButton from '../components/BackButton';
+import InfoButton from '../components/InfoButton';
+
+interface ProfileScreenProps {
+  // Omitted when this is the app-opening confirmation gate, shown before
+  // Welcome - there's nothing to go back to yet.
+  onBack?: () => void;
+  // Present only for the opening gate: renders a "Continue" step instead
+  // of "Save", requires both name and handicap before advancing, and
+  // saves whatever's dirty along the way.
+  onContinue?: () => void;
+}
+
+const HANDICAP_TYPES: { value: HandicapType; label: string }[] = [
+  { value: 'ghin', label: 'GHIN' },
+  { value: 'league', label: 'League (18 Adjusted)' },
+  { value: 'usga_like', label: 'USGA Like' },
+  { value: 'best_guess', label: 'Best Guess (18 Hole)' },
+];
+
+// A profile holds the display name and 18-hole handicap that get saved
+// whenever you create or join a round - this screen is just a direct way
+// to see and change any of it without having to start a round to do so.
+export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps) {
+  const profile = useRoundState((state) => state.profile);
+  const loadProfile = useRoundState((state) => state.loadProfile);
+  const setDisplayName = useRoundState((state) => state.setDisplayName);
+  const setHandicap18 = useRoundState((state) => state.setHandicap18);
+  const setHandicapType = useRoundState((state) => state.setHandicapType);
+
+  const [name, setName] = useState('');
+  const [handicapDraft, setHandicapDraft] = useState('');
+  const [handicapType, setHandicapTypeDraft] = useState<HandicapType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [continuing, setContinuing] = useState(false);
+  const [continueError, setContinueError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadProfile().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadProfile]);
+
+  // Prefill from the saved values once they load - only while each field is
+  // still untouched, so this never clobbers something being actively typed.
+  useEffect(() => {
+    if (profile?.displayName && !name) setName(profile.displayName);
+    if (profile?.handicap18 != null && !handicapDraft) setHandicapDraft(String(profile.handicap18));
+    if (profile?.handicapType && !handicapType) setHandicapTypeDraft(profile.handicapType);
+  }, [profile]);
+
+  const trimmedName = name.trim();
+  const handicapTrimmed = handicapDraft.trim();
+  const handicapNumeric = handicapTrimmed === '' ? null : Number(handicapTrimmed);
+  const handicapValid =
+    handicapTrimmed === '' ||
+    (Number.isFinite(handicapNumeric) && (handicapNumeric as number) <= MAX_HANDICAP);
+
+  const nameDirty = trimmedName !== (profile?.displayName ?? '');
+  const handicapDirty = handicapValid && handicapNumeric !== (profile?.handicap18 ?? null);
+  const handicapTypeDirty = handicapType !== (profile?.handicapType ?? null);
+  const dirty = nameDirty || handicapDirty || handicapTypeDirty;
+
+  // The opening gate requires both a name and an actual (non-blank)
+  // handicap - blank is fine once you're just editing your profile later,
+  // but not fine as the very thing this screen exists to confirm before a
+  // round starts.
+  const isGate = !!onContinue;
+  const canContinue = !!trimmedName && handicapTrimmed !== '' && handicapValid;
+
+  const handleContinue = async () => {
+    if (!onContinue || !canContinue || continuing) return;
+    setContinuing(true);
+    setContinueError(null);
+    try {
+      const tasks: Promise<void>[] = [];
+      if (nameDirty) tasks.push(setDisplayName(trimmedName));
+      if (handicapDirty) tasks.push(setHandicap18(handicapNumeric));
+      if (handicapTypeDirty) tasks.push(setHandicapType(handicapType));
+      await Promise.all(tasks);
+      onContinue();
+    } catch (error) {
+      setContinueError((error as Error).message);
+    } finally {
+      setContinuing(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!trimmedName || !handicapValid || saving || !dirty) return;
+    setSaving(true);
+    setSaved(false);
+    try {
+      const tasks: Promise<void>[] = [];
+      if (nameDirty) tasks.push(setDisplayName(trimmedName));
+      if (handicapDirty) tasks.push(setHandicap18(handicapNumeric));
+      if (handicapTypeDirty) tasks.push(setHandicapType(handicapType));
+      await Promise.all(tasks);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const screen = (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        {onBack && <BackButton onPress={onBack} />}
+        {isGate && <AppLogo size={32} />}
+        <Text style={styles.title}>{isGate ? 'Confirm Your Profile' : 'My Profile'}</Text>
+        {isGate && (
+          <Text style={styles.gateHint}>
+            Set your name and handicap before creating or joining a round.
+          </Text>
+        )}
+      </View>
+
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#1a7f37" />
+        </View>
+      ) : (
+        <View style={styles.content}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Display Name</Text>
+            <InfoButton
+              title="Display Name"
+              message="This is the name your tee group sees when you join or start a round."
+            />
+          </View>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={(text) => {
+              setName(text);
+              setSaved(false);
+            }}
+            placeholder="Your name"
+            autoCapitalize="words"
+          />
+
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>18-Hole Handicap</Text>
+            <InfoButton
+              title="18-Hole Handicap"
+              message="Always your full 18-hole number. Used to work out your strokes for a round - a 9-hole round automatically uses half of this, on the hardest holes only."
+            />
+          </View>
+          <TextInput
+            style={styles.input}
+            value={handicapDraft}
+            onChangeText={(text) => {
+              setHandicapDraft(text);
+              setSaved(false);
+            }}
+            placeholder="e.g. 14.2"
+            keyboardType="decimal-pad"
+          />
+          {!handicapValid && (
+            <Text style={styles.error}>
+              {isGate
+                ? `Enter a number up to ${MAX_HANDICAP}.`
+                : `Enter a number up to ${MAX_HANDICAP}, or leave it blank.`}
+            </Text>
+          )}
+
+          <Text style={styles.label}>Handicap Type</Text>
+          <Text style={styles.hint}>Where this number comes from - tap again to clear.</Text>
+          <View style={styles.chipRow}>
+            {HANDICAP_TYPES.map((option) => {
+              const active = handicapType === option.value;
+              return (
+                <Pressable
+                  key={option.value}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => {
+                    setHandicapTypeDraft(active ? null : option.value);
+                    setSaved(false);
+                  }}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{option.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {isGate ? (
+            <>
+              {!canContinue && (
+                <Text style={styles.error}>
+                  {!trimmedName ? 'Enter a name to continue.' : 'Enter your handicap to continue.'}
+                </Text>
+              )}
+              {continueError && <Text style={styles.error}>{continueError}</Text>}
+              <Pressable
+                style={[styles.button, (!canContinue || continuing) && styles.buttonDisabled]}
+                onPress={handleContinue}
+                disabled={!canContinue || continuing}
+              >
+                {continuing ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continue</Text>}
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Pressable
+                style={[styles.button, (!trimmedName || !handicapValid || !dirty || saving) && styles.buttonDisabled]}
+                onPress={handleSave}
+                disabled={!trimmedName || !handicapValid || !dirty || saving}
+              >
+                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Save</Text>}
+              </Pressable>
+
+              {saved && !dirty && <Text style={styles.saved}>Saved</Text>}
+            </>
+          )}
+        </View>
+      )}
+    </View>
+  );
+
+  // Only the opening gate (before Welcome) gets the watermark - editing
+  // your profile mid-round from the settings menu stays as plain as
+  // before.
+  return isGate ? <PreRoundBackground>{screen}</PreRoundBackground> : screen;
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 8,
+  },
+
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  gateHint: {
+    color: '#889',
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  content: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#556',
+  },
+  hint: {
+    color: '#889',
+    fontSize: 13,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  error: {
+    color: '#c0392b',
+    fontSize: 13,
+    marginTop: -12,
+    marginBottom: 16,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 20,
+  },
+  chip: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: '#f7f8fa',
+  },
+  chipActive: {
+    backgroundColor: '#1a7f37',
+    borderColor: '#1a7f37',
+  },
+  chipText: {
+    color: '#556',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  chipTextActive: {
+    color: '#fff',
+  },
+  button: {
+    backgroundColor: '#1a7f37',
+    borderRadius: 10,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  saved: {
+    color: '#1a7f37',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 12,
+  },
+});

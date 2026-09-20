@@ -31,21 +31,10 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # typescript
 *.tsbuildinfo
 
 # generated native folders
-app/src/main/java/inline/
-
-# Bundle artifacts
-*.jsbundle
-
-# ⭐ Prevent Android SDK tools from polluting the repo
-android/cmdline-tools/
-android/platform-tools/
-android/build-tools/
-android/ndk/
-*.zip
-*.tar.gz

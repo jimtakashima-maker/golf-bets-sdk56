@@ -1,0 +1,80 @@
+{
+  "rules": {
+    "rounds": {
+      "$roundCode": {
+        ".read": "auth != null",
+        ".write": "auth != null && !data.exists()",
+        "createdAt": { ".write": "auth != null" },
+        "holes": { ".write": "auth != null" },
+        "status": { ".write": "auth != null" },
+        "teams": { ".write": "auth != null" },
+        "playerTeams": { ".write": "auth != null" },
+        "skinsBets": { ".write": "auth != null" },
+        "handicaps": { ".write": "auth != null" },
+        "nassauNet": { ".write": "auth != null" },
+        "nassauAmounts": { ".write": "auth != null" },
+        "nassauStakesUnit": { ".write": "auth != null" },
+        "nassauAutoPress": { ".write": "auth != null" },
+        "nassauPressStacking": { ".write": "auth != null" },
+        "nassauPresses": {
+          "$pressId": { ".write": "auth != null && !data.exists()" }
+        },
+        "courseName": { ".write": "auth != null" },
+        "totalHoles": { ".write": "auth != null" },
+        "matchPlayTeams": { ".write": "auth != null" },
+        "matchPlayPlayerTeams": { ".write": "auth != null" },
+        "matchPlayNet": { ".write": "auth != null" },
+        "matchPlayAmounts": { ".write": "auth != null" },
+        "matchPlayStakesUnit": { ".write": "auth != null" },
+        "strokePlayBets": { ".write": "auth != null" },
+        "groups": {
+          "$groupId": {
+            ".write": "auth != null && !data.exists()",
+            "createdAt": { ".write": "auth != null" },
+            "name": { ".write": "auth != null" },
+            "players": {
+              "$playerId": { ".write": "auth != null" }
+            },
+            "scores": {
+              ".write": "auth != null && (root.child('rounds').child($roundCode).child('groups').child($groupId).child('players').child(auth.uid).exists() || root.child('rounds').child($roundCode).child('hostId').val() == auth.uid)"
+            },
+            "scoresSubmitted": {
+              ".write": "auth != null && (root.child('rounds').child($roundCode).child('groups').child($groupId).child('players').child(auth.uid).exists() || root.child('rounds').child($roundCode).child('hostId').val() == auth.uid)"
+            }
+          }
+        }
+      }
+    },
+    "players": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        "profile": {
+          "displayName": { ".write": "auth != null && auth.uid == $uid" },
+          "handicap18": { ".write": "auth != null && auth.uid == $uid" },
+          "handicapType": { ".write": "auth != null && auth.uid == $uid" },
+          "updatedAt": { ".write": "auth != null && auth.uid == $uid" },
+          "isAdmin": { ".write": false }
+        },
+        "history": {
+          "$roundCode": {
+            ".write": "auth != null && auth.uid == $uid"
+          }
+        }
+      }
+    },
+    "courses": {
+      ".read": "auth != null",
+      "$courseId": {
+        ".write": "auth != null && !data.exists()"
+      }
+    },
+    "feedback": {
+      ".read": "auth != null && root.child('players').child(auth.uid).child('profile').child('isAdmin').val() == true",
+      ".indexOn": ["createdAt"],
+      "$feedbackId": {
+        ".write": "auth != null && !data.exists()",
+        ".validate": "newData.hasChildren(['text','byUid','createdAt']) && newData.child('byUid').val() == auth.uid && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 2000"
+      }
+    }
+  }
+}

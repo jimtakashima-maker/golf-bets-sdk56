@@ -1,0 +1,198 @@
+import { useState } from 'react';
+import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { useRoundState } from '../state/useRoundState';
+import PreRoundBackground from '../components/PreRoundBackground';
+import AppLogo from '../components/AppLogo';
+import BackButton from '../components/BackButton';
+
+interface JoinGroupScreenProps {
+  roundCode: string;
+  name: string;
+  onJoined: () => void;
+  onBack: () => void;
+}
+
+export default function JoinGroupScreen({ roundCode, name, onJoined, onBack }: JoinGroupScreenProps) {
+  const previewGroups = useRoundState((state) => state.previewGroups);
+  const joinGroup = useRoundState((state) => state.joinGroup);
+  const createGroupAndJoin = useRoundState((state) => state.createGroupAndJoin);
+  const status = useRoundState((state) => state.status);
+  const errorMessage = useRoundState((state) => state.errorMessage);
+
+  const [newGroupName, setNewGroupName] = useState('');
+  const [joiningId, setJoiningId] = useState<string | null>(null);
+
+  const busy = status === 'connecting';
+
+  const handleJoinExisting = async (groupId: string) => {
+    setJoiningId(groupId);
+    try {
+      await joinGroup(roundCode, groupId, name);
+      onJoined();
+    } catch {
+      // errorMessage is already set in the store and rendered below.
+    } finally {
+      setJoiningId(null);
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    try {
+      await createGroupAndJoin(roundCode, name, newGroupName.trim() || undefined);
+      onJoined();
+    } catch {
+      // errorMessage is already set in the store and rendered below.
+    }
+  };
+
+  return (
+    <PreRoundBackground>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <BackButton onPress={onBack} />
+
+        <AppLogo />
+        <Text style={styles.title}>Pick Your Tee Group</Text>
+        <Text style={styles.subtitle}>
+          Rounds can have more than one tee group sharing a code. Join yours so your scores
+          stay separate from everyone else's - only your tee group can ever change them.
+        </Text>
+
+        {previewGroups.length === 0 && (
+          <Text style={styles.hint}>No tee groups yet - be the first to start one below.</Text>
+        )}
+
+        {previewGroups.map((group) => (
+          <Pressable
+            key={group.id}
+            style={styles.groupRow}
+            onPress={() => handleJoinExisting(group.id)}
+            disabled={busy}
+          >
+            <View>
+              <Text style={styles.groupName}>{group.name}</Text>
+              <Text style={styles.groupCount}>
+                {group.playerCount} player{group.playerCount === 1 ? '' : 's'}
+              </Text>
+            </View>
+            {joiningId === group.id ? (
+              <ActivityIndicator color="#1a7f37" />
+            ) : (
+              <Text style={styles.groupJoin}>Join</Text>
+            )}
+          </Pressable>
+        ))}
+
+        {errorMessage && status === 'error' && <Text style={styles.error}>{errorMessage}</Text>}
+
+        <View style={styles.newGroupBox}>
+          <Text style={styles.newGroupLabel}>Or start a new tee group</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={`Tee Group ${previewGroups.length + 1} (optional name)`}
+            value={newGroupName}
+            onChangeText={setNewGroupName}
+          />
+          <Pressable
+            style={[styles.button, busy && styles.buttonDisabled]}
+            onPress={handleCreateGroup}
+            disabled={busy}
+          >
+            {busy && joiningId === null ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Start New Tee Group</Text>
+            )}
+          </Pressable>
+        </View>
+      </ScrollView>
+    </PreRoundBackground>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  content: {
+    padding: 24,
+    paddingTop: 48,
+    paddingBottom: 48,
+  },
+
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  subtitle: {
+    color: '#667',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  hint: {
+    color: '#667',
+    marginBottom: 12,
+  },
+  groupRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 10,
+  },
+  groupName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  groupCount: {
+    color: '#667',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  groupJoin: {
+    color: '#1a7f37',
+    fontWeight: '700',
+  },
+  error: {
+    color: '#c0392b',
+    marginBottom: 12,
+  },
+  newGroupBox: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  newGroupLabel: {
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  button: {
+    backgroundColor: '#1a7f37',
+    borderRadius: 10,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+});

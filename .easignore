@@ -1,0 +1,42 @@
+# EAS Build upload — exclude local build artifacts and caches
+# (EAS compiles natively on its own servers; none of this needs to be uploaded)
+
+# Android local build output/caches
+android/build/
+android/app/build/
+android/.gradle/
+android/app/.cxx/
+android/.cxx/
+android/local.properties
+
+# iOS local build output/caches (if ever generated locally)
+ios/build/
+ios/Pods/
+ios/.xcode.env.local
+
+# Everything already excluded from git
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.pem
+.env
+.env*.local
+*.tsbuildinfo
+
+# VCS / editor
+.git/
+.vscode/
