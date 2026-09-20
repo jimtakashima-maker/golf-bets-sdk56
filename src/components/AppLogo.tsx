@@ -38,7 +38,13 @@ export default function AppLogo({ size = 40, showWordmark = true, style }: AppLo
     <View style={[styles.row, style]}>
       <BallMark size={size} />
       {showWordmark && (
-        <Text style={[styles.wordmark, { fontSize: size * 0.5 }]}>Then Press Me</Text>
+        <Text
+          style={[styles.wordmark, { fontSize: size * 0.5 }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+        >
+          Then Press Me
+        </Text>
       )}
     </View>
   );
@@ -51,9 +57,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 16,
     gap: 10,
+    maxWidth: '100%',
   },
   wordmark: {
     fontWeight: '700',
     color: '#16513a',
+    flexShrink: 1,
   },
 });
