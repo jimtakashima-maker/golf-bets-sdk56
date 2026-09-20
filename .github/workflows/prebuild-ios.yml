@@ -52,4 +52,7 @@ jobs:
           git commit -m "Prebuild iOS folder (without Pods)" || echo "No changes to commit"
 
       - name: Push changes
-        run: git push
+        run: |
+          git fetch origin main
+          git rebase origin/main || (echo "Rebase failed - manual resolution needed" && exit 1)
+          git push origin HEAD:main
