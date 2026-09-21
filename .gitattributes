@@ -1,0 +1,9 @@
+# Shell scripts and env files sourced by bash on the macOS/Linux EAS build
+# runner must always keep Unix (LF) line endings, regardless of what OS
+# last touched them - npm install / expo prebuild on Windows has rewritten
+# these with CRLF before, which breaks source/. on the build runner with a
+# cryptic "command not found" error.
+*.sh text eol=lf
+.xcode.env text eol=lf
+.xcode.env.* text eol=lf
+Podfile text eol=lf
