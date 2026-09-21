@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { NassauAmounts, PressStackingMode, StakesUnit, stakeFieldLabel } from '../state/useRoundState';
 import InfoButton from './InfoButton';
@@ -166,6 +166,17 @@ function AmountField({
   onChange: (value: number) => void;
 }) {
   const [draft, setDraft] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+
+  // Keeps this field in sync with amounts set from outside this input -
+  // the random bet generator's setNassauAmount/setMatchPlayAmount calls
+  // in particular, which used to leave whatever was already typed here on
+  // screen even though the actual stored amount had changed underneath
+  // it. Skipped while the field is focused so it never clobbers a value
+  // being actively typed.
+  useEffect(() => {
+    if (!focused) setDraft(String(value));
+  }, [value, focused]);
 
   const commit = () => {
     const parsed = Number(draft);
@@ -184,8 +195,12 @@ function AmountField({
         style={styles.amountInput}
         value={draft}
         onChangeText={setDraft}
+        onFocus={() => setFocused(true)}
         onEndEditing={commit}
-        onBlur={commit}
+        onBlur={() => {
+          setFocused(false);
+          commit();
+        }}
         keyboardType="decimal-pad"
       />
     </View>

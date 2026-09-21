@@ -1427,7 +1427,21 @@ function SkinsBetSettingsRow({
   const [nameDraft, setNameDraft] = useState(bet.name);
   const [valueDraft, setValueDraft] = useState(String(bet.valuePerSkin));
   const [buyInDraft, setBuyInDraft] = useState(String(bet.buyIn));
+  const [valueFocused, setValueFocused] = useState(false);
+  const [buyInFocused, setBuyInFocused] = useState(false);
   const isPot = bet.payoutMode === 'pot';
+
+  // Keeps these two in sync with amounts set from outside this input -
+  // the random bet generator's setSkinsBetValuePerSkin/setSkinsBetBuyIn
+  // calls in particular, which used to leave whatever was on screen
+  // stale even though the stored amount had changed underneath it.
+  // Skipped while a field is focused so it never clobbers active typing.
+  useEffect(() => {
+    if (!valueFocused) setValueDraft(String(bet.valuePerSkin));
+  }, [bet.valuePerSkin, valueFocused]);
+  useEffect(() => {
+    if (!buyInFocused) setBuyInDraft(String(bet.buyIn));
+  }, [bet.buyIn, buyInFocused]);
 
   const commitName = () => {
     const trimmed = nameDraft.trim();
@@ -1489,8 +1503,12 @@ function SkinsBetSettingsRow({
               style={styles.valueInput}
               value={buyInDraft}
               onChangeText={setBuyInDraft}
+              onFocus={() => setBuyInFocused(true)}
               onEndEditing={commitBuyIn}
-              onBlur={commitBuyIn}
+              onBlur={() => {
+                setBuyInFocused(false);
+                commitBuyIn();
+              }}
               keyboardType="decimal-pad"
             />
           </View>
@@ -1501,8 +1519,12 @@ function SkinsBetSettingsRow({
               style={styles.valueInput}
               value={valueDraft}
               onChangeText={setValueDraft}
+              onFocus={() => setValueFocused(true)}
               onEndEditing={commitValue}
-              onBlur={commitValue}
+              onBlur={() => {
+                setValueFocused(false);
+                commitValue();
+              }}
               keyboardType="decimal-pad"
             />
           </View>
@@ -1586,7 +1608,22 @@ function StrokePlaySettingsRow({
   const [nameDraft, setNameDraft] = useState(bet.name);
   const [valueDraft, setValueDraft] = useState(String(bet.valuePerStroke));
   const [buyInDraft, setBuyInDraft] = useState(String(bet.buyIn));
+  const [valueFocused, setValueFocused] = useState(false);
+  const [buyInFocused, setBuyInFocused] = useState(false);
   const isPot = bet.payoutMode !== 'perStroke';
+
+  // Keeps these two in sync with amounts set from outside this input -
+  // the random bet generator's setStrokePlayBetValuePerStroke/
+  // setStrokePlayBetBuyIn calls in particular, which used to leave
+  // whatever was on screen stale even though the stored amount had
+  // changed underneath it. Skipped while a field is focused so it never
+  // clobbers active typing.
+  useEffect(() => {
+    if (!valueFocused) setValueDraft(String(bet.valuePerStroke));
+  }, [bet.valuePerStroke, valueFocused]);
+  useEffect(() => {
+    if (!buyInFocused) setBuyInDraft(String(bet.buyIn));
+  }, [bet.buyIn, buyInFocused]);
 
   const commitName = () => {
     const trimmed = nameDraft.trim();
@@ -1646,8 +1683,12 @@ function StrokePlaySettingsRow({
               style={styles.valueInput}
               value={buyInDraft}
               onChangeText={setBuyInDraft}
+              onFocus={() => setBuyInFocused(true)}
               onEndEditing={commitBuyIn}
-              onBlur={commitBuyIn}
+              onBlur={() => {
+                setBuyInFocused(false);
+                commitBuyIn();
+              }}
               keyboardType="decimal-pad"
             />
           </View>
@@ -1658,8 +1699,12 @@ function StrokePlaySettingsRow({
               style={styles.valueInput}
               value={valueDraft}
               onChangeText={setValueDraft}
+              onFocus={() => setValueFocused(true)}
               onEndEditing={commitValue}
-              onBlur={commitValue}
+              onBlur={() => {
+                setValueFocused(false);
+                commitValue();
+              }}
               keyboardType="decimal-pad"
             />
           </View>
