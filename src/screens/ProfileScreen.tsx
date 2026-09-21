@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { useRoundState, HandicapType, MAX_HANDICAP } from '../state/useRoundState';
 import PreRoundBackground from '../components/PreRoundBackground';
 import AppLogo from '../components/AppLogo';
@@ -157,7 +167,10 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
   };
 
   const screen = (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View style={styles.header}>
         {onBack && <BackButton onPress={onBack} />}
         {isGate && <AppLogo size={32} />}
@@ -174,7 +187,12 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
           <ActivityIndicator size="large" color="#1a7f37" />
         </View>
       ) : (
-        <View style={styles.content}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.labelRow}>
             <Text style={styles.label}>Display Name</Text>
             <InfoButton
@@ -374,9 +392,9 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
               {saved && !dirty && <Text style={styles.saved}>Saved</Text>}
             </>
           )}
-        </View>
+        </ScrollView>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 
   // Only the opening gate (before Welcome) gets the watermark - editing
@@ -412,9 +430,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 32,
   },
+  scroll: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: 24,
     paddingTop: 8,
+    // Extra room at the bottom so the Save button (and the Payment
+    // Methods section above it) can scroll fully clear of the keyboard
+    // and the home indicator instead of sitting flush against either.
+    paddingBottom: 40,
   },
   labelRow: {
     flexDirection: 'row',
