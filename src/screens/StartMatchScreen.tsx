@@ -16,6 +16,7 @@ interface StartMatchScreenProps {
 export default function StartMatchScreen({ onStarted, onScanScorecard, onBack }: StartMatchScreenProps) {
   const createRound = useRoundState((state) => state.createRound);
   const roundCode = useRoundState((state) => state.roundCode);
+  const courseName = useRoundState((state) => state.courseName);
   const status = useRoundState((state) => state.status);
   const errorMessage = useRoundState((state) => state.errorMessage);
   const profile = useRoundState((state) => state.profile);
@@ -80,7 +81,9 @@ export default function StartMatchScreen({ onStarted, onScanScorecard, onBack }:
           <Text style={styles.title}>Match Started</Text>
 
           <Pressable style={styles.button} onPress={onScanScorecard}>
-            <Text style={styles.buttonText}>Select Course</Text>
+            <Text style={styles.buttonText} numberOfLines={1}>
+              {courseName ?? 'Select Course'}
+            </Text>
           </Pressable>
 
           <Pressable

@@ -21,6 +21,7 @@ import { scanScorecard, isGeminiConfigured } from '../lib/gemini';
 import PreRoundBackground from '../components/PreRoundBackground';
 import AppLogo from '../components/AppLogo';
 import BackButton from '../components/BackButton';
+import InfoButton from '../components/InfoButton';
 
 const IMAGE_PICKER_UNAVAILABLE_MESSAGE =
   'Photo scanning needs a custom development build - it is not available in Expo Go. ' +
@@ -696,11 +697,13 @@ function CoursePickerModal({
               return (
                 <Pressable key={course.id} style={modalStyles.courseRow} onPress={() => onPick(course)}>
                   <View style={modalStyles.courseRowText}>
-                    <Text style={modalStyles.courseName}>{course.name}</Text>
+                    <View style={modalStyles.courseNameRow}>
+                      <Text style={modalStyles.courseName}>{course.name}</Text>
+                      {course.notes && <InfoButton title={course.name} message={course.notes} />}
+                    </View>
                     <Text style={modalStyles.courseMeta}>
                       {course.totalHoles} holes{summary ? ` · ${summary}` : ''}
                     </Text>
-                    {course.notes && <Text style={modalStyles.courseNotes}>{course.notes}</Text>}
                   </View>
                 </Pressable>
               );
@@ -935,6 +938,10 @@ const modalStyles = StyleSheet.create({
   courseRowText: {
     flex: 1,
   },
+  courseNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   courseName: {
     fontSize: 15,
     fontWeight: '600',
@@ -944,12 +951,6 @@ const modalStyles = StyleSheet.create({
     fontSize: 12,
     color: '#889',
     marginTop: 2,
-  },
-  courseNotes: {
-    fontSize: 11,
-    color: '#a15c00',
-    marginTop: 3,
-    fontStyle: 'italic',
   },
   searchInput: {
     borderWidth: 1,
