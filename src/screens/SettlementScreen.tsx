@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Linking } from 'react-native';
 import {
   useRoundState,
   NassauState,
@@ -9,10 +9,12 @@ import {
   Settlement,
   SettlementLineItem,
   BetCard,
+  PaymentHandles,
   isNassauMatchupResolved,
   isNassauSegmentResolved,
   allBetsClosed,
 } from '../state/useRoundState';
+import { auth } from '../lib/firebase';
 
 function formatAmount(amount: number): string {
   const rounded = Math.abs(Math.round(amount * 100) / 100);
@@ -117,6 +119,135 @@ function computePayoutPlan(settlement: Settlement): PayoutTransaction[] {
   }
   return plan;
 }
+
+// Venmo has no reliable web-only fallback for prefilling an amount, so this
+// tries the app's own URL scheme first and only falls back to the plain
+// profile page (no prefill) if that throws. Deliberately skips a
+// canOpenURL check first - on Android 11+, canOpenURL only reports true for
+// a scheme this app declared in its manifest's <queries> block, which venmo
+// isn't (and adding it means a native rebuild), while actually opening the
+// URL via an explicit user tap works regardless. PayPal and Cash App both
+// support a direct HTTPS link that prefills the amount either way, app
+// installed or not, so those don't need any of this.
+async function openVenmo(handle: string, amount: number, note: string) {
+  const clean = handle.trim().replace(/^@/, '');
+  if (!clean) return;
+  const appUrl = `venmo://paycharge?txn=pay&recipients=${encodeURIComponent(clean)}&amount=${amount.toFixed(
+    2
+  )}&note=${encodeURIComponent(note)}`;
+  const webUrl = `https://venmo.com/${encodeURIComponent(clean)}`;
+  try {
+    await Linking.openURL(appUrl);
+  } catch {
+    await Linking.openURL(webUrl).catch(() => undefined);
+  }
+}
+
+function openPaypal(handle: string, amount: number) {
+  const clean = handle.trim().replace(/^@/, '').replace(/^https?:\/\/(www\.)?paypal\.me\//i, '');
+  if (!clean) return;
+  void Linking.openURL(`https://paypal.me/${encodeURIComponent(clean)}/${amount.toFixed(2)}`).catch(
+    () => undefined
+  );
+}
+
+function openCashApp(handle: string, amount: number) {
+  const clean = handle.trim().replace(/^\$/, '');
+  if (!clean) return;
+  void Linking.openURL(`https://cash.app/$${encodeURIComponent(clean)}/${amount.toFixed(2)}`).catch(
+    () => undefined
+  );
+}
+
+// The buttons/info a payer sees for settling one payout-plan transaction,
+// built entirely from the recipient's own saved handles - the payer needs
+// nothing saved themselves for a deep link to work, only the app installed.
+// Zelle and a custom "Other" method have no reliable link format, so those
+// render as plain text for the payer to copy by hand instead of a button.
+function PaymentOptions({ handles, amount, note }: { handles?: PaymentHandles; amount: number; note: string }) {
+  if (!handles) return null;
+  const buttons: { key: string; label: string; onPress: () => void }[] = [];
+  if (handles.venmo) {
+    buttons.push({ key: 'venmo', label: 'Venmo', onPress: () => void openVenmo(handles.venmo as string, amount, note) });
+  }
+  if (handles.paypal) {
+    buttons.push({ key: 'paypal', label: 'PayPal', onPress: () => openPaypal(handles.paypal as string, amount) });
+  }
+  if (handles.cashapp) {
+    buttons.push({ key: 'cashapp', label: 'Cash App', onPress: () => openCashApp(handles.cashapp as string, amount) });
+  }
+  const infoLines: string[] = [];
+  if (handles.zelle) infoLines.push(`Zelle: ${handles.zelle}`);
+  if (handles.otherLabel && handles.otherValue) infoLines.push(`${handles.otherLabel}: ${handles.otherValue}`);
+
+  if (buttons.length === 0 && infoLines.length === 0) return null;
+
+  return (
+    <View style={styles.paymentOptions}>
+      {buttons.length > 0 && (
+        <View style={styles.paymentButtonsRow}>
+          {buttons.map((button) => (
+            <Pressable key={button.key} style={styles.paymentButton} onPress={button.onPress}>
+              <Text style={styles.paymentButtonText}>Pay via {button.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+      {infoLines.map((line) => (
+        <Text key={line} style={styles.paymentInfoText}>
+          {line}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+// Sent/Confirmed toggles for one payout-plan transaction. Each side can
+// only ever move their own flag (database.rules.json enforces this, and
+// the store's markPayoutSent/markPayoutConfirmed no-op for the wrong uid
+// too) - everyone else in the round just sees the current state read-only,
+// which is what makes the two independent checks meaningful: money isn't
+// "settled" until both the person who paid and the person who got paid
+// say so.
+function PayoutStatusRow({
+  isPayer,
+  isPayee,
+  sentByPayer,
+  confirmedByPayee,
+  onToggleSent,
+  onToggleConfirmed,
+}: {
+  isPayer: boolean;
+  isPayee: boolean;
+  sentByPayer: boolean;
+  confirmedByPayee: boolean;
+  onToggleSent: () => void;
+  onToggleConfirmed: () => void;
+}) {
+  return (
+    <View style={styles.payoutStatusRow}>
+      <Pressable
+        style={[styles.statusChip, sentByPayer && styles.statusChipDone]}
+        onPress={isPayer ? onToggleSent : undefined}
+        disabled={!isPayer}
+      >
+        <Text style={[styles.statusChipText, sentByPayer && styles.statusChipTextDone]}>
+          {sentByPayer ? 'Sent \u2713' : isPayer ? 'Mark Sent' : 'Not Sent'}
+        </Text>
+      </Pressable>
+      <Pressable
+        style={[styles.statusChip, confirmedByPayee && styles.statusChipDone]}
+        onPress={isPayee ? onToggleConfirmed : undefined}
+        disabled={!isPayee}
+      >
+        <Text style={[styles.statusChipText, confirmedByPayee && styles.statusChipTextDone]}>
+          {confirmedByPayee ? 'Confirmed \u2713' : isPayee ? 'Confirm Received' : 'Not Confirmed'}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
 
 // Read-only breakdown of exactly which bets added up to one player's
 // settlement total - one row per line item from computeSettlement, split
@@ -235,8 +366,15 @@ export default function SettlementScreen() {
   const skins = useRoundState((state) => state.skins);
   const strokePlay = useRoundState((state) => state.strokePlay);
   const totalHoles = useRoundState((state) => state.totalHoles);
+  const roundCode = useRoundState((state) => state.roundCode);
+  const paymentHandlesByUid = useRoundState((state) => state.paymentHandlesByUid);
+  const loadPaymentHandlesForPlayers = useRoundState((state) => state.loadPaymentHandlesForPlayers);
+  const payoutStatus = useRoundState((state) => state.payoutStatus);
+  const markPayoutSent = useRoundState((state) => state.markPayoutSent);
+  const markPayoutConfirmed = useRoundState((state) => state.markPayoutConfirmed);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<SettlementTab>('players');
+  const myUid = auth.currentUser?.uid ?? null;
 
   // Everyone in the round, even a player with nothing settled yet - shown
   // as "not settled yet" rather than just missing from the list.
@@ -250,6 +388,16 @@ export default function SettlementScreen() {
   const payoutPlan = closed ? computePayoutPlan(settlement) : [];
   const selectedPlayer = allPlayers.find((player) => player.id === selectedPlayerId) ?? null;
   const selectedEntry = selectedPlayerId ? settlementById.get(selectedPlayerId) : undefined;
+
+  // Payment handles are player-scoped, not round-scoped (see paymentHandles
+  // in useRoundState), so once the payout plan actually has something to
+  // pay, fetch everyone in the round's saved handles in one batch rather
+  // than one lookup per transaction.
+  const allPlayerIds = allPlayers.map((player) => player.id).join(',');
+  useEffect(() => {
+    if (!closed || !allPlayerIds) return;
+    void loadPaymentHandlesForPlayers(allPlayerIds.split(','));
+  }, [closed, allPlayerIds, loadPaymentHandlesForPlayers]);
 
   return (
     <>
@@ -334,14 +482,39 @@ export default function SettlementScreen() {
               <Text style={styles.payoutCount}>
                 {payoutPlan.length} {payoutPlan.length === 1 ? 'payment' : 'payments'} settles everything
               </Text>
-              {payoutPlan.map((tx, index) => (
-                <View key={`${tx.fromId}-${tx.toId}-${index}`} style={styles.payoutRow}>
-                  <Text style={styles.payoutNames} numberOfLines={1}>
-                    {tx.fromLabel} <Text style={styles.payoutArrow}>{'\u2192'}</Text> {tx.toLabel}
-                  </Text>
-                  <Text style={styles.payoutAmount}>{formatAmount(tx.amount)}</Text>
-                </View>
-              ))}
+              {payoutPlan.map((tx, index) => {
+                const txId = `${tx.fromId}_${tx.toId}`;
+                const status = payoutStatus[txId];
+                const settled = !!status?.sentByPayer && !!status?.confirmedByPayee;
+                return (
+                  <View
+                    key={`${tx.fromId}-${tx.toId}-${index}`}
+                    style={[styles.payoutRow, settled && styles.payoutRowSettled]}
+                  >
+                    <View style={styles.payoutTopRow}>
+                      <Text style={styles.payoutNames} numberOfLines={1}>
+                        {tx.fromLabel} <Text style={styles.payoutArrow}>{'\u2192'}</Text> {tx.toLabel}
+                      </Text>
+                      <Text style={styles.payoutAmount}>{formatAmount(tx.amount)}</Text>
+                    </View>
+                    <PaymentOptions
+                      handles={paymentHandlesByUid[tx.toId]}
+                      amount={tx.amount}
+                      note={roundCode ? `Then Press Me - ${roundCode}` : 'Then Press Me'}
+                    />
+                    <PayoutStatusRow
+                      isPayer={!!myUid && myUid === tx.fromId}
+                      isPayee={!!myUid && myUid === tx.toId}
+                      sentByPayer={!!status?.sentByPayer}
+                      confirmedByPayee={!!status?.confirmedByPayee}
+                      onToggleSent={() => void markPayoutSent(tx.fromId, tx.toId, !status?.sentByPayer)}
+                      onToggleConfirmed={() =>
+                        void markPayoutConfirmed(tx.fromId, tx.toId, !status?.confirmedByPayee)
+                      }
+                    />
+                  </View>
+                );
+              })}
             </>
           ))}
 
@@ -522,12 +695,17 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   payoutRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#eee',
+  },
+  payoutRowSettled: {
+    opacity: 0.6,
+  },
+  payoutTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   payoutNames: {
     flex: 1,
@@ -544,6 +722,55 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#234',
+  },
+  paymentOptions: {
+    marginTop: 8,
+  },
+  paymentButtonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  paymentButton: {
+    backgroundColor: '#1a7f37',
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  paymentButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  paymentInfoText: {
+    color: '#889',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  payoutStatusRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  statusChip: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#f7f8fa',
+  },
+  statusChipDone: {
+    backgroundColor: '#eaf6ed',
+    borderColor: '#1a7f37',
+  },
+  statusChipText: {
+    color: '#556',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statusChipTextDone: {
+    color: '#1a7f37',
   },
 });
 

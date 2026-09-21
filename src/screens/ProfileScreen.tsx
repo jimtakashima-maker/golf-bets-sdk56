@@ -32,25 +32,39 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
   const setDisplayName = useRoundState((state) => state.setDisplayName);
   const setHandicap18 = useRoundState((state) => state.setHandicap18);
   const setHandicapType = useRoundState((state) => state.setHandicapType);
+  const paymentHandles = useRoundState((state) => state.paymentHandles);
+  const loadPaymentHandles = useRoundState((state) => state.loadPaymentHandles);
+  const savePaymentHandles = useRoundState((state) => state.savePaymentHandles);
 
   const [name, setName] = useState('');
   const [handicapDraft, setHandicapDraft] = useState('');
   const [handicapType, setHandicapTypeDraft] = useState<HandicapType | null>(null);
+  const [venmo, setVenmo] = useState('');
+  const [paypal, setPaypal] = useState('');
+  const [cashapp, setCashapp] = useState('');
+  const [zelle, setZelle] = useState('');
+  const [otherLabel, setOtherLabel] = useState('');
+  const [otherValue, setOtherValue] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [continuing, setContinuing] = useState(false);
   const [continueError, setContinueError] = useState<string | null>(null);
 
+  const isGate = !!onContinue;
+
   useEffect(() => {
     let cancelled = false;
-    loadProfile().finally(() => {
+    const tasks = [loadProfile()];
+    if (!isGate) tasks.push(loadPaymentHandles());
+    Promise.all(tasks).finally(() => {
       if (!cancelled) setLoading(false);
     });
     return () => {
       cancelled = true;
     };
-  }, [loadProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadProfile, loadPaymentHandles]);
 
   // Prefill from the saved values once they load - only while each field is
   // still untouched, so this never clobbers something being actively typed.
@@ -59,6 +73,15 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
     if (profile?.handicap18 != null && !handicapDraft) setHandicapDraft(String(profile.handicap18));
     if (profile?.handicapType && !handicapType) setHandicapTypeDraft(profile.handicapType);
   }, [profile]);
+
+  useEffect(() => {
+    if (paymentHandles?.venmo && !venmo) setVenmo(paymentHandles.venmo);
+    if (paymentHandles?.paypal && !paypal) setPaypal(paymentHandles.paypal);
+    if (paymentHandles?.cashapp && !cashapp) setCashapp(paymentHandles.cashapp);
+    if (paymentHandles?.zelle && !zelle) setZelle(paymentHandles.zelle);
+    if (paymentHandles?.otherLabel && !otherLabel) setOtherLabel(paymentHandles.otherLabel);
+    if (paymentHandles?.otherValue && !otherValue) setOtherValue(paymentHandles.otherValue);
+  }, [paymentHandles]);
 
   const trimmedName = name.trim();
   const handicapTrimmed = handicapDraft.trim();
@@ -70,13 +93,21 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
   const nameDirty = trimmedName !== (profile?.displayName ?? '');
   const handicapDirty = handicapValid && handicapNumeric !== (profile?.handicap18 ?? null);
   const handicapTypeDirty = handicapType !== (profile?.handicapType ?? null);
-  const dirty = nameDirty || handicapDirty || handicapTypeDirty;
+  const venmoDirty = venmo.trim() !== (paymentHandles?.venmo ?? '');
+  const paypalDirty = paypal.trim() !== (paymentHandles?.paypal ?? '');
+  const cashappDirty = cashapp.trim() !== (paymentHandles?.cashapp ?? '');
+  const zelleDirty = zelle.trim() !== (paymentHandles?.zelle ?? '');
+  const otherLabelDirty = otherLabel.trim() !== (paymentHandles?.otherLabel ?? '');
+  const otherValueDirty = otherValue.trim() !== (paymentHandles?.otherValue ?? '');
+  const paymentDirty =
+    venmoDirty || paypalDirty || cashappDirty || zelleDirty || otherLabelDirty || otherValueDirty;
+  const dirty = nameDirty || handicapDirty || handicapTypeDirty || paymentDirty;
 
   // The opening gate requires both a name and an actual (non-blank)
   // handicap - blank is fine once you're just editing your profile later,
   // but not fine as the very thing this screen exists to confirm before a
-  // round starts.
-  const isGate = !!onContinue;
+  // round starts. Payment methods are never part of the gate - they stay
+  // on the full Profile screen only.
   const canContinue = !!trimmedName && handicapTrimmed !== '' && handicapValid;
 
   const handleContinue = async () => {
@@ -106,6 +137,18 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
       if (nameDirty) tasks.push(setDisplayName(trimmedName));
       if (handicapDirty) tasks.push(setHandicap18(handicapNumeric));
       if (handicapTypeDirty) tasks.push(setHandicapType(handicapType));
+      if (paymentDirty) {
+        tasks.push(
+          savePaymentHandles({
+            venmo: venmo.trim() || null,
+            paypal: paypal.trim() || null,
+            cashapp: cashapp.trim() || null,
+            zelle: zelle.trim() || null,
+            otherLabel: otherLabel.trim() || null,
+            otherValue: otherValue.trim() || null,
+          })
+        );
+      }
       await Promise.all(tasks);
       setSaved(true);
     } finally {
@@ -193,7 +236,114 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
                 </Pressable>
               );
             })}
+
           </View>
+
+          {!isGate && (
+            <View style={styles.paymentSection}>
+              <View style={styles.labelRow}>
+                <Text style={styles.sectionTitle}>Payment Methods</Text>
+                <InfoButton
+                  title="Payment Methods"
+                  message="Add the handles your golf buddies can pay you with. Once saved, anyone who owes you money in a round's payout plan gets a prefilled pay-via button using whichever app you both have."
+                />
+              </View>
+
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Venmo</Text>
+              </View>
+              <TextInput
+                style={styles.input}
+                value={venmo}
+                onChangeText={(text) => {
+                  setVenmo(text);
+                  setSaved(false);
+                }}
+                placeholder="@your-venmo"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>PayPal</Text>
+              </View>
+              <TextInput
+                style={styles.input}
+                value={paypal}
+                onChangeText={(text) => {
+                  setPaypal(text);
+                  setSaved(false);
+                }}
+                placeholder="paypal.me username"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Cash App</Text>
+              </View>
+              <TextInput
+                style={styles.input}
+                value={cashapp}
+                onChangeText={(text) => {
+                  setCashapp(text);
+                  setSaved(false);
+                }}
+                placeholder="$your-cashtag"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Zelle</Text>
+                <InfoButton
+                  title="Zelle"
+                  message="Zelle has no public handle or payment link, so this is just for reference - your buddies will still send it themselves from their own bank app using the phone number or email you enter here."
+                />
+              </View>
+              <TextInput
+                style={styles.input}
+                value={zelle}
+                onChangeText={(text) => {
+                  setZelle(text);
+                  setSaved(false);
+                }}
+                placeholder="Phone number or email"
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Other</Text>
+                <InfoButton
+                  title="Other"
+                  message="Any other app your group uses - Apple Cash, a bank app, whatever works. Name it and add the handle or info someone would need."
+                />
+              </View>
+              <View style={styles.otherRow}>
+                <TextInput
+                  style={[styles.input, styles.otherLabelInput]}
+                  value={otherLabel}
+                  onChangeText={(text) => {
+                    setOtherLabel(text);
+                    setSaved(false);
+                  }}
+                  placeholder="App name"
+                />
+                <TextInput
+                  style={[styles.input, styles.otherValueInput]}
+                  value={otherValue}
+                  onChangeText={(text) => {
+                    setOtherValue(text);
+                    setSaved(false);
+                  }}
+                  placeholder="Handle"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            </View>
+          )}
 
           {isGate ? (
             <>
@@ -270,6 +420,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
+  },
+  paymentSection: {
+    marginTop: 4,
+    marginBottom: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#223',
+  },
+  otherRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  otherLabelInput: {
+    flex: 1,
+  },
+  otherValueInput: {
+    flex: 1,
   },
   label: {
     fontSize: 13,

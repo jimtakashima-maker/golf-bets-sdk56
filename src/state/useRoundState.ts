@@ -397,6 +397,44 @@ export interface PlayerProfile {
   isAdmin: boolean;
 }
 
+// The payment apps a player can list a handle for on their profile, used
+// to build "pay via X" deep links on the Settlement screen's payout plan.
+// Zelle gets its own field (unlike a generic "other") because it's common
+// enough to deserve first-class prefilled support even though it has no
+// public handle or deep link of its own - just a phone/email shown for
+// manual entry in whatever bank app the payer already uses.
+export type PaymentApp = 'venmo' | 'paypal' | 'cashapp' | 'zelle' | 'other';
+
+// A player's own saved payment handles for settling bets with other
+// players after a round. Broadly readable (any signed-in user) since a
+// handle isn't sensitive and needs to be visible to whoever owes this
+// player money in a round; only the owning uid can ever write its own
+// node (see database.rules.json's paymentHandles rules).
+export interface PaymentHandles {
+  venmo: string | null;
+  paypal: string | null;
+  cashapp: string | null;
+  // Phone or email, for display/manual entry only - Zelle has no public
+  // handle format and nothing to deep-link to.
+  zelle: string | null;
+  otherLabel: string | null;
+  otherValue: string | null;
+  updatedAt: number;
+}
+
+// Whether a single payout-plan transaction (see PayoutTransaction in
+// SettlementScreen.tsx, keyed the same way as this entry: `${fromId}_${toId}`)
+// has actually been settled. Two independent confirmations, each writable
+// by only one side (enforced in database.rules.json) - the payer marks
+// money as sent, the payee marks it as received, and neither can toggle
+// the other's flag for them.
+export interface PayoutStatusEntry {
+  sentByPayer: boolean;
+  sentAt: number | null;
+  confirmedByPayee: boolean;
+  confirmedAt: number | null;
+}
+
 // One thing a player sent in from the feedback box on Welcome. Only
 // readable by whichever profile has isAdmin set (see database.rules.json) -
 // everyone can write one, nobody but the admin can read the list back.
@@ -578,6 +616,17 @@ interface RoundState {
   profile: PlayerProfile | null;
   courses: CourseInfo[];
   history: HistoryEntry[];
+  // This device's own saved payment handles (same load-on-demand pattern
+  // as profile above). Other round players' handles are looked up
+  // separately, on demand, into paymentHandlesByUid - there's no single
+  // round-scoped node for these since a handle belongs to the player, not
+  // the round.
+  paymentHandles: PaymentHandles | null;
+  paymentHandlesByUid: Record<string, PaymentHandles>;
+  // Live-synced with the round (see _subscribeToRound) since both sides of
+  // a payout need to see the other's sent/confirmed toggle update in real
+  // time. Keyed the same way as PayoutStatusEntry: `${fromId}_${toId}`.
+  payoutStatus: Record<string, PayoutStatusEntry>;
 
   // Actions
   createRound: (hostName: string) => Promise<void>;
@@ -639,6 +688,11 @@ interface RoundState {
   setDisplayName: (name: string) => Promise<void>;
   setHandicap18: (handicap18: number | null) => Promise<void>;
   setHandicapType: (handicapType: HandicapType | null) => Promise<void>;
+  loadPaymentHandles: () => Promise<void>;
+  savePaymentHandles: (update: Partial<Omit<PaymentHandles, 'updatedAt'>>) => Promise<void>;
+  loadPaymentHandlesForPlayers: (uids: string[]) => Promise<void>;
+  markPayoutSent: (fromId: string, toId: string, sent: boolean) => Promise<void>;
+  markPayoutConfirmed: (fromId: string, toId: string, confirmed: boolean) => Promise<void>;
   submitFeedback: (text: string) => Promise<void>;
   fetchFeedback: () => Promise<FeedbackEntry[]>;
   loadCourses: () => Promise<void>;
@@ -1974,6 +2028,7 @@ let detachMatchPlayNetListener: (() => void) | null = null;
 let detachMatchPlayStakesUnitListener: (() => void) | null = null;
 let detachMatchPlayAmountsListener: (() => void) | null = null;
 let detachStrokePlayBetsListener: (() => void) | null = null;
+let detachPayoutStatusListener: (() => void) | null = null;
 
 function detachListeners() {
   if (detachHolesListener) {
@@ -2060,6 +2115,10 @@ function detachListeners() {
     detachStrokePlayBetsListener();
     detachStrokePlayBetsListener = null;
   }
+  if (detachPayoutStatusListener) {
+    detachPayoutStatusListener();
+    detachPayoutStatusListener = null;
+  }
 }
 
 // ---------- Store ----------
@@ -2111,6 +2170,9 @@ export const useRoundState = create<RoundState>((set, get) => ({
   profile: null,
   courses: [],
   history: [],
+  paymentHandles: null,
+  paymentHandlesByUid: {},
+  payoutStatus: {},
 
   createRound: async (hostName) => {
     set({ status: 'connecting', errorMessage: null });
@@ -2755,6 +2817,8 @@ export const useRoundState = create<RoundState>((set, get) => ({
       scoringGroupId: null,
       previewRoundCode: null,
       previewGroups: [],
+      payoutStatus: {},
+      paymentHandlesByUid: {},
     });
   },
 
@@ -2841,6 +2905,117 @@ export const useRoundState = create<RoundState>((set, get) => ({
         isAdmin: state.profile?.isAdmin ?? false,
       },
     }));
+  },
+
+  loadPaymentHandles: async () => {
+    await ensureSignedIn();
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const snapshot = await dbGet(ref(db, `paymentHandles/${uid}`));
+    const value = snapshot.val() as Partial<PaymentHandles> | null;
+    set({
+      paymentHandles: value
+        ? {
+            venmo: value.venmo ?? null,
+            paypal: value.paypal ?? null,
+            cashapp: value.cashapp ?? null,
+            zelle: value.zelle ?? null,
+            otherLabel: value.otherLabel ?? null,
+            otherValue: value.otherValue ?? null,
+            updatedAt: value.updatedAt ?? 0,
+          }
+        : null,
+    });
+  },
+
+  // A merge (like setDisplayName etc.) so saving just the Venmo field never
+  // touches the others. Any field explicitly passed as null clears that
+  // handle - Firebase's update() deletes a child written as null, which is
+  // exactly "no handle saved" here.
+  savePaymentHandles: async (update) => {
+    await ensureSignedIn();
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const updatedAt = Date.now();
+    await dbUpdate(ref(db, `paymentHandles/${uid}`), { ...update, updatedAt });
+    set((state) => ({
+      paymentHandles: {
+        venmo: state.paymentHandles?.venmo ?? null,
+        paypal: state.paymentHandles?.paypal ?? null,
+        cashapp: state.paymentHandles?.cashapp ?? null,
+        zelle: state.paymentHandles?.zelle ?? null,
+        otherLabel: state.paymentHandles?.otherLabel ?? null,
+        otherValue: state.paymentHandles?.otherValue ?? null,
+        ...update,
+        updatedAt,
+      },
+    }));
+  },
+
+  // One-time batch lookup (not a live listener - these rarely change
+  // mid-round and the Settlement screen re-calls this on demand) of other
+  // round players' payment handles, so the payout plan can show "pay via
+  // X" buttons. Players who never saved any handles (including anyone
+  // added by the host who isn't on the app themselves) simply have no
+  // entry, and the UI degrades to showing the amount with no pay button.
+  loadPaymentHandlesForPlayers: async (uids) => {
+    const uniqueUids = Array.from(new Set(uids));
+    if (uniqueUids.length === 0) return;
+    const snapshots = await Promise.all(
+      uniqueUids.map((playerUid) => dbGet(ref(db, `paymentHandles/${playerUid}`)))
+    );
+    set((state) => {
+      const paymentHandlesByUid = { ...state.paymentHandlesByUid };
+      uniqueUids.forEach((playerUid, index) => {
+        const value = snapshots[index].val() as Partial<PaymentHandles> | null;
+        if (value) {
+          paymentHandlesByUid[playerUid] = {
+            venmo: value.venmo ?? null,
+            paypal: value.paypal ?? null,
+            cashapp: value.cashapp ?? null,
+            zelle: value.zelle ?? null,
+            otherLabel: value.otherLabel ?? null,
+            otherValue: value.otherValue ?? null,
+            updatedAt: value.updatedAt ?? 0,
+          };
+        } else {
+          delete paymentHandlesByUid[playerUid];
+        }
+      });
+      return { paymentHandlesByUid };
+    });
+  },
+
+  // Only the payer can ever mark their own side sent (database.rules.json
+  // enforces this too - this local uid check just avoids a doomed write).
+  // No local set() needed: the live payoutStatus listener from
+  // _subscribeToRound picks up the change and updates every device,
+  // including this one.
+  markPayoutSent: async (fromId, toId, sent) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await ensureSignedIn();
+    const uid = auth.currentUser?.uid;
+    if (!uid || uid !== fromId) return;
+    const txId = `${fromId}_${toId}`;
+    await dbUpdate(ref(db, `rounds/${roundCode}/payoutStatus/${txId}`), {
+      sentByPayer: sent,
+      sentAt: sent ? Date.now() : null,
+    });
+  },
+
+  // Mirror of markPayoutSent for the payee's side of the same transaction.
+  markPayoutConfirmed: async (fromId, toId, confirmed) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await ensureSignedIn();
+    const uid = auth.currentUser?.uid;
+    if (!uid || uid !== toId) return;
+    const txId = `${fromId}_${toId}`;
+    await dbUpdate(ref(db, `rounds/${roundCode}/payoutStatus/${txId}`), {
+      confirmedByPayee: confirmed,
+      confirmedAt: confirmed ? Date.now() : null,
+    });
   },
 
   // Anyone can write one (own name attached, but nothing else about the
@@ -2949,6 +3124,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
     const matchPlayStakesUnitRef = ref(db, `rounds/${code}/matchPlayStakesUnit`);
     const matchPlayAmountsRef = ref(db, `rounds/${code}/matchPlayAmounts`);
     const strokePlayBetsRef = ref(db, `rounds/${code}/strokePlayBets`);
+    const payoutStatusRef = ref(db, `rounds/${code}/payoutStatus`);
 
     // hostId and createdAt never change after round creation, so a
     // one-time read is enough for both - no need for a live listener like
@@ -3189,6 +3365,26 @@ export const useRoundState = create<RoundState>((set, get) => ({
     detachStrokePlayBetsListener = onValue(strokePlayBetsRef, (snapshot) => {
       set({ strokePlayBets: strokePlayBetsFromSnapshotValue(snapshot.val()) });
       recomputeAll();
+    });
+
+    // Not part of recomputeAll's dependency chain - a sent/confirmed
+    // toggle never changes the bets or amounts owed, only whether they've
+    // actually been paid, so this just mirrors the raw node into state.
+    detachPayoutStatusListener = onValue(payoutStatusRef, (snapshot) => {
+      const value = (snapshot.val() ?? {}) as Record<
+        string,
+        Partial<PayoutStatusEntry> | undefined
+      >;
+      const payoutStatus: Record<string, PayoutStatusEntry> = {};
+      for (const [txId, entry] of Object.entries(value)) {
+        payoutStatus[txId] = {
+          sentByPayer: entry?.sentByPayer === true,
+          sentAt: entry?.sentAt ?? null,
+          confirmedByPayee: entry?.confirmedByPayee === true,
+          confirmedAt: entry?.confirmedAt ?? null,
+        };
+      }
+      set({ payoutStatus });
     });
 
     set({
