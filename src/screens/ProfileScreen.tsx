@@ -60,6 +60,10 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
   const [saved, setSaved] = useState(false);
   const [continuing, setContinuing] = useState(false);
   const [continueError, setContinueError] = useState<string | null>(null);
+  // Collapsed by default - most visits to this screen are just
+  // checking/editing name and handicap, so the payment apps stay tucked
+  // away until asked for instead of always taking up scroll space.
+  const [paymentOpen, setPaymentOpen] = useState(false);
 
   const isGate = !!onContinue;
 
@@ -112,6 +116,17 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
   const paymentDirty =
     venmoDirty || paypalDirty || cashappDirty || zelleDirty || otherLabelDirty || otherValueDirty;
   const dirty = nameDirty || handicapDirty || handicapTypeDirty || paymentDirty;
+
+  // How many "Get Paid" apps are actually saved right now - shown next
+  // to the collapsed section header so there's something to glance at
+  // without opening it.
+  const savedPaymentCount = [
+    paymentHandles?.venmo,
+    paymentHandles?.paypal,
+    paymentHandles?.cashapp,
+    paymentHandles?.zelle,
+    paymentHandles?.otherLabel && paymentHandles?.otherValue ? paymentHandles.otherValue : null,
+  ].filter(Boolean).length;
 
   // The opening gate requires both a name and an actual (non-blank)
   // handicap - blank is fine once you're just editing your profile later,
@@ -259,107 +274,124 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
 
           {!isGate && (
             <View style={styles.paymentSection}>
-              <View style={styles.labelRow}>
-                <Text style={styles.sectionTitle}>Payment Methods</Text>
-                <InfoButton
-                  title="Payment Methods"
-                  message="Add the handles your golf buddies can pay you with. Once saved, anyone who owes you money in a round's payout plan gets a prefilled pay-via button using whichever app you both have."
-                />
-              </View>
+              <Pressable
+                style={styles.paymentSectionHeader}
+                onPress={() => setPaymentOpen((prev) => !prev)}
+              >
+                <View style={styles.paymentSectionHeaderLeft}>
+                  <Text style={styles.sectionTitle}>Get Paid</Text>
+                  <InfoButton
+                    title="Get Paid"
+                    message="Add the handles your golf buddies can pay you with. Once saved, anyone who owes you money in a round's payout plan gets a prefilled pay-via button using whichever app you both have."
+                  />
+                </View>
+                <View style={styles.paymentSectionHeaderRight}>
+                  <Text style={styles.paymentSectionSummary}>
+                    {savedPaymentCount > 0
+                      ? `${savedPaymentCount} saved`
+                      : 'Not set up'}
+                  </Text>
+                  <Text style={styles.paymentSectionChevron}>{paymentOpen ? '▾' : '▸'}</Text>
+                </View>
+              </Pressable>
 
-              <View style={styles.labelRow}>
-                <Text style={styles.label}>Venmo</Text>
-              </View>
-              <TextInput
-                style={styles.input}
-                value={venmo}
-                onChangeText={(text) => {
-                  setVenmo(text);
-                  setSaved(false);
-                }}
-                placeholder="@your-venmo"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              {paymentOpen && (
+                <View style={styles.paymentSectionBody}>
+                  <View style={styles.labelRow}>
+                    <Text style={styles.label}>Venmo</Text>
+                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={venmo}
+                    onChangeText={(text) => {
+                      setVenmo(text);
+                      setSaved(false);
+                    }}
+                    placeholder="@your-venmo"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
 
-              <View style={styles.labelRow}>
-                <Text style={styles.label}>PayPal</Text>
-              </View>
-              <TextInput
-                style={styles.input}
-                value={paypal}
-                onChangeText={(text) => {
-                  setPaypal(text);
-                  setSaved(false);
-                }}
-                placeholder="paypal.me username"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+                  <View style={styles.labelRow}>
+                    <Text style={styles.label}>PayPal</Text>
+                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={paypal}
+                    onChangeText={(text) => {
+                      setPaypal(text);
+                      setSaved(false);
+                    }}
+                    placeholder="paypal.me username"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
 
-              <View style={styles.labelRow}>
-                <Text style={styles.label}>Cash App</Text>
-              </View>
-              <TextInput
-                style={styles.input}
-                value={cashapp}
-                onChangeText={(text) => {
-                  setCashapp(text);
-                  setSaved(false);
-                }}
-                placeholder="$your-cashtag"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+                  <View style={styles.labelRow}>
+                    <Text style={styles.label}>Cash App</Text>
+                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={cashapp}
+                    onChangeText={(text) => {
+                      setCashapp(text);
+                      setSaved(false);
+                    }}
+                    placeholder="$your-cashtag"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
 
-              <View style={styles.labelRow}>
-                <Text style={styles.label}>Zelle</Text>
-                <InfoButton
-                  title="Zelle"
-                  message="Zelle has no public handle or payment link, so this is just for reference - your buddies will still send it themselves from their own bank app using the phone number or email you enter here."
-                />
-              </View>
-              <TextInput
-                style={styles.input}
-                value={zelle}
-                onChangeText={(text) => {
-                  setZelle(text);
-                  setSaved(false);
-                }}
-                placeholder="Phone number or email"
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
+                  <View style={styles.labelRow}>
+                    <Text style={styles.label}>Zelle</Text>
+                    <InfoButton
+                      title="Zelle"
+                      message="Zelle has no public handle or payment link, so this is just for reference - your buddies will still send it themselves from their own bank app using the phone number or email you enter here."
+                    />
+                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={zelle}
+                    onChangeText={(text) => {
+                      setZelle(text);
+                      setSaved(false);
+                    }}
+                    placeholder="Phone number or email"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                  />
 
-              <View style={styles.labelRow}>
-                <Text style={styles.label}>Other</Text>
-                <InfoButton
-                  title="Other"
-                  message="Any other app your group uses - Apple Cash, a bank app, whatever works. Name it and add the handle or info someone would need."
-                />
-              </View>
-              <View style={styles.otherRow}>
-                <TextInput
-                  style={[styles.input, styles.otherLabelInput]}
-                  value={otherLabel}
-                  onChangeText={(text) => {
-                    setOtherLabel(text);
-                    setSaved(false);
-                  }}
-                  placeholder="App name"
-                />
-                <TextInput
-                  style={[styles.input, styles.otherValueInput]}
-                  value={otherValue}
-                  onChangeText={(text) => {
-                    setOtherValue(text);
-                    setSaved(false);
-                  }}
-                  placeholder="Handle"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
+                  <View style={styles.labelRow}>
+                    <Text style={styles.label}>Other</Text>
+                    <InfoButton
+                      title="Other"
+                      message="Any other app your group uses - Apple Cash, a bank app, whatever works. Name it and add the handle or info someone would need."
+                    />
+                  </View>
+                  <View style={styles.otherRow}>
+                    <TextInput
+                      style={[styles.input, styles.otherLabelInput]}
+                      value={otherLabel}
+                      onChangeText={(text) => {
+                        setOtherLabel(text);
+                        setSaved(false);
+                      }}
+                      placeholder="App name"
+                    />
+                    <TextInput
+                      style={[styles.input, styles.otherValueInput]}
+                      value={otherValue}
+                      onChangeText={(text) => {
+                        setOtherValue(text);
+                        setSaved(false);
+                      }}
+                      placeholder="Handle"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                </View>
+              )}
             </View>
           )}
 
@@ -452,6 +484,31 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#eee',
+  },
+  paymentSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  paymentSectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentSectionHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentSectionSummary: {
+    color: '#889',
+    fontSize: 13,
+    marginRight: 8,
+  },
+  paymentSectionChevron: {
+    color: '#889',
+    fontSize: 14,
+  },
+  paymentSectionBody: {
+    marginTop: 16,
   },
   sectionTitle: {
     fontSize: 16,
