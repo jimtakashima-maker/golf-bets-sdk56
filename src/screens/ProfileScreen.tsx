@@ -10,6 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import { useRoundState, HandicapType, MAX_HANDICAP } from '../state/useRoundState';
 import PreRoundBackground from '../components/PreRoundBackground';
 import AppLogo from '../components/AppLogo';
@@ -180,6 +182,31 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
       setSaving(false);
     }
   };
+
+  // Read-only version/build info for the footer below - lets us tell
+  // installed builds apart (and, once a build has EAS Update baked in,
+  // see which OTA update it's running) without digging through a build
+  // log. appVersionSource is "remote" in eas.json, so these are the
+  // actual values EAS resolved for this specific build, not whatever
+  // is checked into app.json.
+  let versionLine = `v${Constants.expoConfig?.version ?? '?'}`;
+  const buildNumber =
+    Platform.OS === 'ios'
+      ? Constants.expoConfig?.ios?.buildNumber
+      : Constants.expoConfig?.android?.versionCode;
+  if (buildNumber != null) versionLine += ` (${buildNumber})`;
+  try {
+    if (Updates.channel) versionLine += ` \u00b7 ${Updates.channel}`;
+    if (!Updates.isEmbeddedLaunch && Updates.updateId) {
+      versionLine += ` \u00b7 update ${Updates.updateId.slice(0, 8)}`;
+    } else {
+      versionLine += ' \u00b7 embedded';
+    }
+  } catch {
+    // expo-updates isn't compiled into this build yet (e.g. an older
+    // installed build from before OTA was set up) - just show the app
+    // version/build number above without OTA info.
+  }
 
   const screen = (
     <KeyboardAvoidingView
@@ -426,6 +453,8 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
           )}
         </ScrollView>
       )}
+
+      <Text style={styles.versionFooter}>{versionLine}</Text>
     </KeyboardAvoidingView>
   );
 
@@ -597,5 +626,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginTop: 12,
+  },
+  versionFooter: {
+    textAlign: 'center',
+    color: '#aab',
+    fontSize: 11,
+    paddingVertical: 6,
   },
 });

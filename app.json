@@ -7,7 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jimtakashimamaker.golfbetssdk56",
@@ -18,26 +17,26 @@
         "NSPhotoLibraryUsageDescription": "Used to pick a photo of a course scorecard so hole par and handicap index can be read automatically."
       }
     },
-
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#1a7f37",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png"
       },
-      "package": "com.jimtakashimamaker.golfbetssdk56"
+      "package": "com.jimtakashimamaker.golfbetssdk56",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "extra": {
       "eas": {
         "projectId": "4d1a21b0-15b1-4b60-b377-524bed97c820"
       }
     },
-
     "plugins": [
       [
         "expo-image-picker",
@@ -60,6 +59,10 @@
           }
         }
       ]
-    ]
+    ],
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/4d1a21b0-15b1-4b60-b377-524bed97c820"
+    }
   }
 }
