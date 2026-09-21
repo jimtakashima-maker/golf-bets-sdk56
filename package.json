@@ -4,6 +4,13 @@
   "private": true,
   "main": "index.js",
   "license": "0BSD",
+  "expo": {
+    "doctor": {
+      "appConfigFieldsNotSyncedCheck": {
+        "enabled": false
+      }
+    }
+  },
   "scripts": {
     "start": "expo start --dev-client",
     "android": "expo run:android",
