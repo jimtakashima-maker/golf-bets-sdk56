@@ -73,16 +73,13 @@ function StrokePlayBetCard({ bet, divider }: { bet: StrokePlayBetResult; divider
 }
 
 export default function StrokePlayStatus({ strokePlay, players }: StrokePlayStatusProps) {
+  // Once the round is under way, an empty Stroke Play section is just
+  // noise - nobody set up a Stroke Play bet for this round, so there's
+  // nothing to show. (The "add players"/"add one in Game Admin" nudges
+  // this used to show here belong in Game Admin, where bets are actually
+  // configured, not on the read-only Leaderboard.)
   if (strokePlay.length === 0) {
-    const hint = players.length < 2 ? 'Add 2+ players to track Stroke Play' : 'No Stroke Play bets yet - add one in Game Admin.';
-    return (
-      <View style={styles.container}>
-        <View style={styles.headerBar}>
-          <Text style={styles.headerBarText}>STROKE PLAY</Text>
-        </View>
-        <Text style={[styles.hint, styles.content]}>{hint}</Text>
-      </View>
-    );
+    return null;
   }
 
   return (

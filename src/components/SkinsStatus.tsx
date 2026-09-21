@@ -139,15 +139,13 @@ function SkinsBetDetailModal({
 export default function SkinsStatus({ skins }: SkinsStatusProps) {
   const [selected, setSelected] = useState<SkinsBetResult | null>(null);
 
+  // Once the round is under way, an empty Skins section is just noise -
+  // nobody set up a Skins bet for this round, so there's nothing to show.
+  // (The "add one in Game Admin" nudge this used to show here belongs in
+  // Game Admin, where bets are actually configured, not on the read-only
+  // Leaderboard.)
   if (skins.length === 0) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.headerBar}>
-          <Text style={styles.headerBarText}>SKINS</Text>
-        </View>
-        <Text style={[styles.hint, styles.content]}>No Skins bets yet - add one in Game Admin.</Text>
-      </View>
-    );
+    return null;
   }
 
   return (

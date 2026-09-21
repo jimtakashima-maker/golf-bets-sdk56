@@ -277,16 +277,13 @@ function NassauMatchupDetailModal({
 export default function NassauStatus({ nassau, players, totalHoles }: NassauStatusProps) {
   const [selected, setSelected] = useState<NassauMatchup | null>(null);
 
+  // Once the round is under way, an empty Nassau section is just noise -
+  // nobody set up Nassau teams for this round, so there's nothing to show.
+  // (The "add teams"/"add players" nudges this used to show here belong in
+  // Game Admin, where bets are actually configured, not on the read-only
+  // Leaderboard.)
   if (nassau.length === 0) {
-    const hint = players.length < 2 ? 'Add 2+ players to track Nassau' : 'No Nassau teams yet';
-    return (
-      <View style={styles.container}>
-        <View style={styles.headerBar}>
-          <Text style={styles.headerBarText}>NASSAU</Text>
-        </View>
-        <Text style={[styles.hint, styles.content]}>{hint}</Text>
-      </View>
-    );
+    return null;
   }
 
   return (

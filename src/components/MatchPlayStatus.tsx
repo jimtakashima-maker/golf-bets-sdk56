@@ -257,16 +257,13 @@ function MatchPlayMatchupDetailModal({
 export default function MatchPlayStatus({ matchPlay, players, totalHoles }: MatchPlayStatusProps) {
   const [selected, setSelected] = useState<NassauMatchup | null>(null);
 
+  // Once the round is under way, an empty Match Play section is just noise
+  // - nobody set up Match Play teams for this round, so there's nothing to
+  // show. (The "add teams"/"add players" nudges this used to show here
+  // belong in Game Admin, where bets are actually configured, not on the
+  // read-only Leaderboard.)
   if (matchPlay.length === 0) {
-    const hint = players.length < 2 ? 'Add 2+ players to track Match Play' : 'No Match Play teams yet';
-    return (
-      <View style={styles.container}>
-        <View style={styles.headerBar}>
-          <Text style={styles.headerBarText}>MATCH PLAY</Text>
-        </View>
-        <Text style={[styles.hint, styles.content]}>{hint}</Text>
-      </View>
-    );
+    return null;
   }
 
   return (
