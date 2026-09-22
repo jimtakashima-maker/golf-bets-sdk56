@@ -405,6 +405,39 @@ function ScorecardModal({
     return { strokes, toPar: strokes - parPlayed, played };
   };
 
+  // Front/back-9 subtotals (the classic "OUT"/"IN" columns) - only
+  // meaningful once there's a back nine to split from, so a 9-hole round
+  // just keeps its single running total instead of a redundant subtotal.
+  const showNineSplit = totalHoles > 9;
+  const frontNine = holeNumbers.filter((hole) => hole <= 9);
+  const backNine = holeNumbers.filter((hole) => hole > 9);
+  const sumPar = (subset: number[]) => subset.reduce((sum, hole) => sum + (holes[hole]?.par ?? 0), 0);
+  const frontPar = sumPar(frontNine);
+  const backPar = sumPar(backNine);
+
+  const playerSubtotal = (playerId: string, subset: number[]) => {
+    let strokes = 0;
+    let played = 0;
+    subset.forEach((hole) => {
+      const strokesOnHole = scores[hole]?.[playerId];
+      if (strokesOnHole != null) {
+        strokes += strokesOnHole;
+        played += 1;
+      }
+    });
+    return { strokes, played };
+  };
+
+  // Column list drives every row so the header, par, and each player row
+  // all insert the OUT/IN subtotal in exactly the same spot.
+  type ScorecardColumn = { kind: 'hole'; hole: number } | { kind: 'out' } | { kind: 'in' };
+  const columns: ScorecardColumn[] = [];
+  holeNumbers.forEach((hole) => {
+    columns.push({ kind: 'hole', hole });
+    if (showNineSplit && hole === 9) columns.push({ kind: 'out' });
+  });
+  if (showNineSplit) columns.push({ kind: 'in' });
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <Pressable style={styles.modalBackdrop} onPress={onClose} />
@@ -437,11 +470,17 @@ function ScorecardModal({
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View>
                 <View style={styles.scorecardRow}>
-                  {holeNumbers.map((hole) => (
-                    <View style={styles.scorecardGridCell} key={hole}>
-                      <Text style={styles.scorecardHeaderText}>{hole}</Text>
-                    </View>
-                  ))}
+                  {columns.map((column) =>
+                    column.kind === 'hole' ? (
+                      <View style={styles.scorecardGridCell} key={`hole-${column.hole}`}>
+                        <Text style={styles.scorecardHeaderText}>{column.hole}</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.scorecardSubtotalCell} key={column.kind}>
+                        <Text style={styles.scorecardHeaderText}>{column.kind === 'out' ? 'OUT' : 'IN'}</Text>
+                      </View>
+                    )
+                  )}
                   <View style={styles.scorecardGridCell}>
                     <Text style={styles.scorecardHeaderText}>Tot</Text>
                   </View>
@@ -451,11 +490,17 @@ function ScorecardModal({
                 </View>
 
                 <View style={styles.scorecardRow}>
-                  {holeNumbers.map((hole) => (
-                    <View style={styles.scorecardGridCell} key={hole}>
-                      <Text style={styles.scorecardParText}>{holes[hole]?.par ?? '-'}</Text>
-                    </View>
-                  ))}
+                  {columns.map((column) =>
+                    column.kind === 'hole' ? (
+                      <View style={styles.scorecardGridCell} key={`hole-${column.hole}`}>
+                        <Text style={styles.scorecardParText}>{holes[column.hole]?.par ?? '-'}</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.scorecardSubtotalCell} key={column.kind}>
+                        <Text style={styles.scorecardParText}>{column.kind === 'out' ? frontPar : backPar}</Text>
+                      </View>
+                    )
+                  )}
                   <View style={styles.scorecardGridCell}>
                     <Text style={styles.scorecardParText}>{totalPar}</Text>
                   </View>
@@ -468,14 +513,27 @@ function ScorecardModal({
                   const { strokes, toPar, played } = playerTotals(player.id);
                   return (
                     <View style={styles.scorecardRow} key={player.id}>
-                      {holeNumbers.map((hole) => (
-                        <View style={styles.scorecardGridCell} key={hole}>
-                          <Text style={styles.scorecardScoreText}>
-                            {scores[hole]?.[player.id] ?? '-'}
-                          </Text>
-                          {strokesOn(player.id, hole) > 0 && <View style={styles.scorecardStrokeDot} />}
-                        </View>
-                      ))}
+                      {columns.map((column) => {
+                        if (column.kind === 'hole') {
+                          const hole = column.hole;
+                          return (
+                            <View style={styles.scorecardGridCell} key={`hole-${hole}`}>
+                              <Text style={styles.scorecardScoreText}>
+                                {scores[hole]?.[player.id] ?? '-'}
+                              </Text>
+                              {strokesOn(player.id, hole) > 0 && <View style={styles.scorecardStrokeDot} />}
+                            </View>
+                          );
+                        }
+                        const subtotal = playerSubtotal(player.id, column.kind === 'out' ? frontNine : backNine);
+                        return (
+                          <View style={styles.scorecardSubtotalCell} key={column.kind}>
+                            <Text style={styles.scorecardScoreText}>
+                              {subtotal.played > 0 ? subtotal.strokes : '-'}
+                            </Text>
+                          </View>
+                        );
+                      })}
                       <View style={styles.scorecardGridCell}>
                         <Text style={styles.scorecardScoreText}>{played > 0 ? strokes : '-'}</Text>
                       </View>
@@ -722,6 +780,17 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
     borderLeftWidth: 1,
     borderLeftColor: '#f3f3f3',
+  },
+  scorecardSubtotalCell: {
+    width: 40,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    borderLeftWidth: 1,
+    borderLeftColor: '#ccc',
+    backgroundColor: '#f7f8fa',
   },
   scorecardHeaderText: {
     fontSize: 12,
