@@ -69,6 +69,12 @@
         "strokePlayBets": {
           ".write": "auth != null"
         },
+        "birdiesBets": {
+          ".write": "auth != null"
+        },
+        "doublesBets": {
+          ".write": "auth != null"
+        },
         "groups": {
           "$groupId": {
             ".write": "auth != null && !data.exists()",

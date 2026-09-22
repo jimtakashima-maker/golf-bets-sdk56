@@ -234,6 +234,103 @@ export interface SkinsBetResult {
 // players. Computed round-wide, across every tee group, same as Nassau.
 export type SkinsState = SkinsBetResult[];
 
+export interface BirdiesPlayerTotal {
+  id: string;
+  label: string;
+  // Strokes-under-par earned across the round: a birdie is worth 1, an
+  // eagle 2, an albatross 3, and so on - so a player's eagle is worth
+  // exactly twice what a birdie is in the flat per-point payout below,
+  // without needing a special case for it.
+  points: number;
+}
+
+// One independent Birdies pool - own name, own opted-in players, own
+// net-scoring setting, own dollar value. Same shape as a Skins bet
+// (playerIds is a flat list, not an exclusive team), minus carryover and
+// the pot payout mode - Birdies only ever pays flat, per point, the
+// moment it's earned.
+export interface BirdiesBet {
+  id: string;
+  name: string;
+  net: boolean;
+  // Dollar value of one point (one stroke under par) - every other
+  // eligible player pays this per point the birdie-maker earns. 0 means
+  // no money attached yet.
+  amountPerBirdie: number;
+  unit: StakesUnit;
+  createdAt: number;
+  playerIds: string[];
+}
+
+// One Birdies bet's result on a single hole. `scorers` only lists
+// eligible players who actually scored birdie-or-better that hole, with
+// how many points it's worth - everyone else on the hole simply isn't in
+// this map. `resolved` false means it isn't fully played yet by every
+// eligible player.
+export interface BirdiesHoleResult {
+  hole: number;
+  scores: Record<string, number | null>;
+  scorers: Record<string, number>;
+  resolved: boolean;
+}
+
+export interface BirdiesBetResult {
+  betId: string;
+  name: string;
+  totals: BirdiesPlayerTotal[];
+  holesResolved: number;
+  holes: BirdiesHoleResult[];
+}
+
+// One result per Birdies bet in the round, same pattern as SkinsState.
+export type BirdiesState = BirdiesBetResult[];
+
+export interface DoublesPlayerTotal {
+  id: string;
+  label: string;
+  // Number of holes this player scored double bogey or worse on.
+  doubleCount: number;
+}
+
+// One independent Doubles pool - the mirror image of Birdies: instead of
+// paying out for a good hole, every eligible player who scores double
+// bogey or worse on a hole pays every other eligible player a flat amount
+// for it, regardless of what anyone else scored that hole. Same shape as
+// a Birdies bet otherwise.
+export interface DoublesBet {
+  id: string;
+  name: string;
+  net: boolean;
+  // Dollar value of one double-bogey-or-worse hole - paid to every other
+  // eligible player. 0 means no money attached yet.
+  amountPerDouble: number;
+  unit: StakesUnit;
+  createdAt: number;
+  playerIds: string[];
+}
+
+// One Doubles bet's result on a single hole. `doubledIds` lists eligible
+// players who scored double bogey or worse that hole (there can be more
+// than one). `resolved` false means it isn't fully played yet by every
+// eligible player.
+export interface DoublesHoleResult {
+  hole: number;
+  scores: Record<string, number | null>;
+  doubledIds: string[];
+  resolved: boolean;
+}
+
+export interface DoublesBetResult {
+  betId: string;
+  name: string;
+  totals: DoublesPlayerTotal[];
+  holesResolved: number;
+  holes: DoublesHoleResult[];
+}
+
+// One result per Doubles bet in the round, same pattern as SkinsState.
+export type DoublesState = DoublesBetResult[];
+
 // How a Stroke Play bet turns the round's final scores into money.
 // 'perStroke' pays the outright winner (lowest score) a flat $ amount for
 // every stroke they beat each other entrant by - no buy-in, just the
@@ -330,7 +427,7 @@ export interface BetCardRow {
 // whole distribution at once matters most.
 export interface BetCard {
   key: string;
-  category: 'Nassau' | 'Match Play' | 'Skins' | 'Stroke Play';
+  category: 'Nassau' | 'Match Play' | 'Skins' | 'Stroke Play' | 'Birdies' | 'Doubles';
   title: string;
   isPot: boolean;
   rows: BetCardRow[];
@@ -587,9 +684,17 @@ interface RoundState {
   strokePlayBets: StrokePlayBet[];
   strokePlay: StrokePlayState;
 
-  // Final $ owed per player, combining Nassau, Match Play, every Skins bet,
-  // and every Stroke Play bet. Recomputed whenever any of those, or the
-  // dollar amounts, change.
+  // Birdies and Doubles bets, round-wide - same pattern as Skins/Stroke
+  // Play: any number of independent pools, each recomputed locally
+  // whenever groups (scores change), the bet list, or handicaps change.
+  birdiesBets: BirdiesBet[];
+  birdies: BirdiesState;
+  doublesBets: DoublesBet[];
+  doubles: DoublesState;
+
+  // Final $ owed per player, combining Nassau, Match Play, every Skins,
+  // Stroke Play, Birdies, and Doubles bet. Recomputed whenever any of
+  // those, or the dollar amounts, change.
   settlement: Settlement;
   betCards: BetCard[];
 
@@ -682,6 +787,20 @@ interface RoundState {
   setStrokePlayBetBuyIn: (betId: string, buyIn: number) => Promise<void>;
   setStrokePlayBetUnit: (betId: string, unit: StakesUnit) => Promise<void>;
   setPlayerInStrokePlayBet: (betId: string, playerId: string, inBet: boolean) => Promise<void>;
+  createBirdiesBet: (name?: string) => Promise<string>;
+  renameBirdiesBet: (betId: string, name: string) => Promise<void>;
+  deleteBirdiesBet: (betId: string) => Promise<void>;
+  setBirdiesBetNet: (betId: string, net: boolean) => Promise<void>;
+  setBirdiesBetAmount: (betId: string, amountPerBirdie: number) => Promise<void>;
+  setBirdiesBetUnit: (betId: string, unit: StakesUnit) => Promise<void>;
+  setPlayerInBirdiesBet: (betId: string, playerId: string, inBet: boolean) => Promise<void>;
+  createDoublesBet: (name?: string) => Promise<string>;
+  renameDoublesBet: (betId: string, name: string) => Promise<void>;
+  deleteDoublesBet: (betId: string) => Promise<void>;
+  setDoublesBetNet: (betId: string, net: boolean) => Promise<void>;
+  setDoublesBetAmount: (betId: string, amountPerDouble: number) => Promise<void>;
+  setDoublesBetUnit: (betId: string, unit: StakesUnit) => Promise<void>;
+  setPlayerInDoublesBet: (betId: string, playerId: string, inBet: boolean) => Promise<void>;
   setPlayerHandicap: (playerId: string, handicap: number) => Promise<void>;
   setCourseName: (name: string | null) => Promise<void>;
   loadProfile: () => Promise<void>;
@@ -1459,6 +1578,151 @@ function computeStrokePlay(
   );
 }
 
+/**
+ * Computes one Birdies bet's totals, round-wide. A hole only resolves once
+ * every eligible player has a score recorded for it. Every eligible
+ * player under par that hole earns points equal to how far under (1 for a
+ * birdie, 2 for an eagle, and so on) - there's no winner-take-all on a
+ * hole the way Skins has, multiple players can all score on the same hole.
+ */
+function computeBirdiesForBet(
+  players: Player[],
+  scores: HoleScores,
+  holes: HolesInfo,
+  bet: BirdiesBet,
+  totalHoles: number
+): BirdiesBetResult {
+  const eligible = players.filter((player) => bet.playerIds.includes(player.id));
+
+  if (eligible.length < 2) {
+    return { betId: bet.id, name: bet.name, totals: [], holesResolved: 0, holes: [] };
+  }
+
+  const points = new Map<string, number>(eligible.map((player) => [player.id, 0]));
+  let holesResolved = 0;
+  const holeResults: BirdiesHoleResult[] = [];
+
+  for (let hole = 1; hole <= totalHoles; hole += 1) {
+    const holeScores = scores[hole];
+    const scoreMap: Record<string, number | null> = {};
+    eligible.forEach((player) => {
+      scoreMap[player.id] = holeScores?.[player.id] ?? null;
+    });
+
+    const resolved = !!holeScores && eligible.every((player) => holeScores[player.id] != null);
+    const scorers: Record<string, number> = {};
+    if (resolved) {
+      holesResolved += 1;
+      const par = strokePlayHolePar(holes, hole);
+      eligible.forEach((player) => {
+        const strokes = holeScores![player.id];
+        const under = par - strokes;
+        if (under > 0) {
+          scorers[player.id] = under;
+          points.set(player.id, (points.get(player.id) ?? 0) + under);
+        }
+      });
+    }
+
+    holeResults.push({ hole, scores: scoreMap, scorers, resolved });
+  }
+
+  const totals: BirdiesPlayerTotal[] = eligible
+    .map((player) => ({ id: player.id, label: player.name, points: points.get(player.id) ?? 0 }))
+    .sort((a, b) => b.points - a.points);
+
+  return { betId: bet.id, name: bet.name, totals, holesResolved, holes: holeResults };
+}
+
+/**
+ * Computes every Birdies bet in the round, independently - same pattern as
+ * Skins. Each bet picks gross or net scores per its own net-scoring
+ * setting.
+ */
+function computeBirdies(
+  players: Player[],
+  grossScores: HoleScores,
+  netScores: HoleScores,
+  holes: HolesInfo,
+  bets: BirdiesBet[],
+  totalHoles: number
+): BirdiesState {
+  return bets.map((bet) =>
+    computeBirdiesForBet(players, bet.net ? netScores : grossScores, holes, bet, totalHoles)
+  );
+}
+
+/**
+ * Computes one Doubles bet's totals, round-wide - the mirror image of
+ * computeBirdiesForBet. Every eligible player at double bogey or worse on
+ * a resolved hole picks up one double for it, independent of what anyone
+ * else on the hole scored.
+ */
+function computeDoublesForBet(
+  players: Player[],
+  scores: HoleScores,
+  holes: HolesInfo,
+  bet: DoublesBet,
+  totalHoles: number
+): DoublesBetResult {
+  const eligible = players.filter((player) => bet.playerIds.includes(player.id));
+
+  if (eligible.length < 2) {
+    return { betId: bet.id, name: bet.name, totals: [], holesResolved: 0, holes: [] };
+  }
+
+  const counts = new Map<string, number>(eligible.map((player) => [player.id, 0]));
+  let holesResolved = 0;
+  const holeResults: DoublesHoleResult[] = [];
+
+  for (let hole = 1; hole <= totalHoles; hole += 1) {
+    const holeScores = scores[hole];
+    const scoreMap: Record<string, number | null> = {};
+    eligible.forEach((player) => {
+      scoreMap[player.id] = holeScores?.[player.id] ?? null;
+    });
+
+    const resolved = !!holeScores && eligible.every((player) => holeScores[player.id] != null);
+    const doubledIds: string[] = [];
+    if (resolved) {
+      holesResolved += 1;
+      const par = strokePlayHolePar(holes, hole);
+      eligible.forEach((player) => {
+        const strokes = holeScores![player.id];
+        if (strokes - par >= 2) {
+          doubledIds.push(player.id);
+          counts.set(player.id, (counts.get(player.id) ?? 0) + 1);
+        }
+      });
+    }
+
+    holeResults.push({ hole, scores: scoreMap, doubledIds, resolved });
+  }
+
+  const totals: DoublesPlayerTotal[] = eligible
+    .map((player) => ({ id: player.id, label: player.name, doubleCount: counts.get(player.id) ?? 0 }))
+    .sort((a, b) => a.doubleCount - b.doubleCount);
+
+  return { betId: bet.id, name: bet.name, totals, holesResolved, holes: holeResults };
+}
+
+/**
+ * Computes every Doubles bet in the round, independently - same pattern as
+ * Birdies/Skins.
+ */
+function computeDoubles(
+  players: Player[],
+  grossScores: HoleScores,
+  netScores: HoleScores,
+  holes: HolesInfo,
+  bets: DoublesBet[],
+  totalHoles: number
+): DoublesState {
+  return bets.map((bet) =>
+    computeDoublesForBet(players, bet.net ? netScores : grossScores, holes, bet, totalHoles)
+  );
+}
+
 // Front/back are always a 9-hole segment, regardless of round length -
 // exported so the leaderboard UI can compute "holes to play" without
 // duplicating the number.
@@ -1514,6 +1778,8 @@ export function allBetsClosed(
   matchPlay: NassauState,
   skins: SkinsState,
   strokePlay: StrokePlayState,
+  birdies: BirdiesState,
+  doubles: DoublesState,
   totalHoles: number,
   nassauPressResults: NassauPressResult[]
 ): boolean {
@@ -1521,10 +1787,14 @@ export function allBetsClosed(
   const matchPlayDone = matchPlay.every((matchup) => isNassauMatchupResolved(matchup, totalHoles));
   const skinsDone = skins.every((bet) => bet.totals.length === 0 || bet.holesResolved >= totalHoles);
   const strokePlayDone = strokePlay.every((bet) => bet.totals.length === 0 || bet.resolved);
+  const birdiesDone = birdies.every((bet) => bet.totals.length === 0 || bet.holesResolved >= totalHoles);
+  const doublesDone = doubles.every((bet) => bet.totals.length === 0 || bet.holesResolved >= totalHoles);
   const pressesDone = nassauPressResults.every((press) =>
     isNassauSegmentResolved(press.state, press.endHole - press.startHole + 1)
   );
-  return nassauDone && matchPlayDone && skinsDone && strokePlayDone && pressesDone;
+  return (
+    nassauDone && matchPlayDone && skinsDone && strokePlayDone && birdiesDone && doublesDone && pressesDone
+  );
 }
 
 /**
@@ -1611,6 +1881,10 @@ function computeSettlement(
   skinsBets: SkinsBet[],
   strokePlay: StrokePlayState,
   strokePlayBets: StrokePlayBet[],
+  birdies: BirdiesState,
+  birdiesBets: BirdiesBet[],
+  doubles: DoublesState,
+  doublesBets: DoublesBet[],
   totalHoles: number
 ): { settlement: Settlement; betCards: BetCard[] } {
   const net = new Map<string, number>();
@@ -1737,6 +2011,40 @@ function computeSettlement(
         bump(total.id, amount, bet.name);
         recordCard(`strokeplay-${bet.betId}`, 'Stroke Play', bet.name, true, total.id, amount);
       });
+    }
+  }
+
+  // Birdies: flat $ per point (1 for a birdie, 2 for an eagle, ...),
+  // computed directly the same way Skins' flat per-skin payout is -
+  // every point a player earned is worth amountPerBirdie from every other
+  // eligible player, so a player's net is their point share of the total
+  // minus their own points, times eligibleCount.
+  const birdiesBetById = new Map(birdiesBets.map((bet) => [bet.id, bet]));
+  for (const bet of birdies) {
+    const settings = birdiesBetById.get(bet.betId);
+    if (!settings || settings.amountPerBirdie <= 0 || bet.totals.length < 2) continue;
+    const eligibleCount = bet.totals.length;
+    const totalPoints = bet.totals.reduce((sum, total) => sum + total.points, 0);
+    for (const total of bet.totals) {
+      const amount = settings.amountPerBirdie * (total.points * eligibleCount - totalPoints);
+      bump(total.id, amount, bet.name);
+      recordCard(`birdies-${bet.betId}`, 'Birdies', bet.name, false, total.id, amount);
+    }
+  }
+
+  // Doubles: the mirror image of Birdies - every double a player has
+  // costs them amountPerDouble from every other eligible player, so the
+  // same closed-form formula applies with the sign flipped.
+  const doublesBetById = new Map(doublesBets.map((bet) => [bet.id, bet]));
+  for (const bet of doubles) {
+    const settings = doublesBetById.get(bet.betId);
+    if (!settings || settings.amountPerDouble <= 0 || bet.totals.length < 2) continue;
+    const eligibleCount = bet.totals.length;
+    const totalDoubles = bet.totals.reduce((sum, total) => sum + total.doubleCount, 0);
+    for (const total of bet.totals) {
+      const amount = settings.amountPerDouble * (totalDoubles - total.doubleCount * eligibleCount);
+      bump(total.id, amount, bet.name);
+      recordCard(`doubles-${bet.betId}`, 'Doubles', bet.name, false, total.id, amount);
     }
   }
 
@@ -1905,6 +2213,58 @@ function strokePlayBetsFromSnapshotValue(
     .sort((a, b) => a.createdAt - b.createdAt);
 }
 
+interface BirdiesBetSnapshotValue {
+  name?: string;
+  net?: boolean;
+  amountPerBirdie?: number;
+  unit?: StakesUnit;
+  createdAt?: number;
+  players?: Record<string, true> | null;
+}
+
+function birdiesBetsFromSnapshotValue(
+  value: Record<string, BirdiesBetSnapshotValue> | null
+): BirdiesBet[] {
+  if (!value) return [];
+  return Object.entries(value)
+    .map(([id, b]) => ({
+      id,
+      name: b.name ?? 'Birdies',
+      net: b.net === true,
+      amountPerBirdie: b.amountPerBirdie ?? 0,
+      unit: (b.unit === 'drinks' ? 'drinks' : 'money') as StakesUnit,
+      createdAt: b.createdAt ?? 0,
+      playerIds: b.players ? Object.keys(b.players) : [],
+    }))
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+interface DoublesBetSnapshotValue {
+  name?: string;
+  net?: boolean;
+  amountPerDouble?: number;
+  unit?: StakesUnit;
+  createdAt?: number;
+  players?: Record<string, true> | null;
+}
+
+function doublesBetsFromSnapshotValue(
+  value: Record<string, DoublesBetSnapshotValue> | null
+): DoublesBet[] {
+  if (!value) return [];
+  return Object.entries(value)
+    .map(([id, b]) => ({
+      id,
+      name: b.name ?? 'Doubles',
+      net: b.net === true,
+      amountPerDouble: b.amountPerDouble ?? 0,
+      unit: (b.unit === 'drinks' ? 'drinks' : 'money') as StakesUnit,
+      createdAt: b.createdAt ?? 0,
+      playerIds: b.players ? Object.keys(b.players) : [],
+    }))
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
 interface GroupSnapshotValue {
   name?: string;
   createdAt?: number;
@@ -2028,6 +2388,8 @@ let detachMatchPlayNetListener: (() => void) | null = null;
 let detachMatchPlayStakesUnitListener: (() => void) | null = null;
 let detachMatchPlayAmountsListener: (() => void) | null = null;
 let detachStrokePlayBetsListener: (() => void) | null = null;
+let detachBirdiesBetsListener: (() => void) | null = null;
+let detachDoublesBetsListener: (() => void) | null = null;
 let detachPayoutStatusListener: (() => void) | null = null;
 
 function detachListeners() {
@@ -2115,6 +2477,14 @@ function detachListeners() {
     detachStrokePlayBetsListener();
     detachStrokePlayBetsListener = null;
   }
+  if (detachBirdiesBetsListener) {
+    detachBirdiesBetsListener();
+    detachBirdiesBetsListener = null;
+  }
+  if (detachDoublesBetsListener) {
+    detachDoublesBetsListener();
+    detachDoublesBetsListener = null;
+  }
   if (detachPayoutStatusListener) {
     detachPayoutStatusListener();
     detachPayoutStatusListener = null;
@@ -2157,6 +2527,10 @@ export const useRoundState = create<RoundState>((set, get) => ({
   skins: [],
   strokePlayBets: [],
   strokePlay: [],
+  birdiesBets: [],
+  birdies: [],
+  doublesBets: [],
+  doubles: [],
   settlement: [],
   betCards: [],
 
@@ -2675,6 +3049,122 @@ export const useRoundState = create<RoundState>((set, get) => ({
     }
   },
 
+  // Birdies bets live at the round level too, same shape as Skins/Stroke
+  // Play - each is its own independent pool that can pull players from
+  // any tee group, and a player can be opted into more than one at once.
+  createBirdiesBet: async (name) => {
+    const { roundCode, birdiesBets } = get();
+    if (!roundCode) throw new Error('Not in a round.');
+    const betRef = push(ref(db, `rounds/${roundCode}/birdiesBets`));
+    const betId = betRef.key as string;
+    await dbSet(betRef, {
+      name: name?.trim() || `Birdies ${birdiesBets.length + 1}`,
+      net: false,
+      amountPerBirdie: 0,
+      unit: 'money',
+      createdAt: Date.now(),
+    });
+    return betId;
+  },
+
+  renameBirdiesBet: async (betId, name) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/birdiesBets/${betId}/name`), name);
+  },
+
+  deleteBirdiesBet: async (betId) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbRemove(ref(db, `rounds/${roundCode}/birdiesBets/${betId}`));
+  },
+
+  setBirdiesBetNet: async (betId, net) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/birdiesBets/${betId}/net`), net);
+  },
+
+  setBirdiesBetAmount: async (betId, amountPerBirdie) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/birdiesBets/${betId}/amountPerBirdie`), amountPerBirdie);
+  },
+
+  setBirdiesBetUnit: async (betId, unit) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/birdiesBets/${betId}/unit`), unit);
+  },
+
+  setPlayerInBirdiesBet: async (betId, playerId, inBet) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    const path = ref(db, `rounds/${roundCode}/birdiesBets/${betId}/players/${playerId}`);
+    if (inBet) {
+      await dbSet(path, true);
+    } else {
+      await dbRemove(path);
+    }
+  },
+
+  // Doubles bets live at the round level too, same shape as Birdies.
+  createDoublesBet: async (name) => {
+    const { roundCode, doublesBets } = get();
+    if (!roundCode) throw new Error('Not in a round.');
+    const betRef = push(ref(db, `rounds/${roundCode}/doublesBets`));
+    const betId = betRef.key as string;
+    await dbSet(betRef, {
+      name: name?.trim() || `Doubles ${doublesBets.length + 1}`,
+      net: false,
+      amountPerDouble: 0,
+      unit: 'money',
+      createdAt: Date.now(),
+    });
+    return betId;
+  },
+
+  renameDoublesBet: async (betId, name) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/doublesBets/${betId}/name`), name);
+  },
+
+  deleteDoublesBet: async (betId) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbRemove(ref(db, `rounds/${roundCode}/doublesBets/${betId}`));
+  },
+
+  setDoublesBetNet: async (betId, net) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/doublesBets/${betId}/net`), net);
+  },
+
+  setDoublesBetAmount: async (betId, amountPerDouble) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/doublesBets/${betId}/amountPerDouble`), amountPerDouble);
+  },
+
+  setDoublesBetUnit: async (betId, unit) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/doublesBets/${betId}/unit`), unit);
+  },
+
+  setPlayerInDoublesBet: async (betId, playerId, inBet) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    const path = ref(db, `rounds/${roundCode}/doublesBets/${betId}/players/${playerId}`);
+    if (inBet) {
+      await dbSet(path, true);
+    } else {
+      await dbRemove(path);
+    }
+  },
+
   // Nassau is a single round-wide bet (unlike Skins), so its net-scoring
   // flag and dollar amounts live directly on the round rather than nested
   // under a bet id.
@@ -2810,6 +3300,10 @@ export const useRoundState = create<RoundState>((set, get) => ({
       skins: [],
       strokePlayBets: [],
       strokePlay: [],
+      birdiesBets: [],
+      birdies: [],
+      doublesBets: [],
+      doubles: [],
       settlement: [],
       betCards: [],
       currentHole: 1,
@@ -3124,6 +3618,8 @@ export const useRoundState = create<RoundState>((set, get) => ({
     const matchPlayStakesUnitRef = ref(db, `rounds/${code}/matchPlayStakesUnit`);
     const matchPlayAmountsRef = ref(db, `rounds/${code}/matchPlayAmounts`);
     const strokePlayBetsRef = ref(db, `rounds/${code}/strokePlayBets`);
+    const birdiesBetsRef = ref(db, `rounds/${code}/birdiesBets`);
+    const doublesBetsRef = ref(db, `rounds/${code}/doublesBets`);
     const payoutStatusRef = ref(db, `rounds/${code}/payoutStatus`);
 
     // hostId and createdAt never change after round creation, so a
@@ -3159,6 +3655,8 @@ export const useRoundState = create<RoundState>((set, get) => ({
         matchPlayAmounts,
         skinsBets,
         strokePlayBets,
+        birdiesBets,
+        doublesBets,
         handicaps,
         holes,
         totalHoles,
@@ -3199,6 +3697,8 @@ export const useRoundState = create<RoundState>((set, get) => ({
       );
       const skins = computeSkins(allPlayers, grossScores, netScores, skinsBets, totalHoles);
       const strokePlay = computeStrokePlay(allPlayers, grossScores, netScores, holes, strokePlayBets, totalHoles);
+      const birdies = computeBirdies(allPlayers, grossScores, netScores, holes, birdiesBets, totalHoles);
+      const doubles = computeDoubles(allPlayers, grossScores, netScores, holes, doublesBets, totalHoles);
       const { settlement, betCards } = computeSettlement(
         allPlayers,
         nassau,
@@ -3210,15 +3710,19 @@ export const useRoundState = create<RoundState>((set, get) => ({
         skinsBets,
         strokePlay,
         strokePlayBets,
+        birdies,
+        birdiesBets,
+        doubles,
+        doublesBets,
         totalHoles
       );
-      set({ nassau, nassauPressResults, matchPlay, skins, strokePlay, settlement, betCards });
+      set({ nassau, nassauPressResults, matchPlay, skins, strokePlay, birdies, doubles, settlement, betCards });
 
       // Once every bet is closed, record this device's own result to its
       // own private history - harmless to re-run on every recompute while
       // closed stays true, since a listener only fires when the underlying
       // data actually changes, not on a timer.
-      if (allBetsClosed(nassau, matchPlay, skins, strokePlay, totalHoles, nassauPressResults)) {
+      if (allBetsClosed(nassau, matchPlay, skins, strokePlay, birdies, doubles, totalHoles, nassauPressResults)) {
         void recordHistoryEntry(code, uid, createdAt, courseName, totalHoles, allPlayers, settlement, betCards);
       }
     };
@@ -3364,6 +3868,16 @@ export const useRoundState = create<RoundState>((set, get) => ({
 
     detachStrokePlayBetsListener = onValue(strokePlayBetsRef, (snapshot) => {
       set({ strokePlayBets: strokePlayBetsFromSnapshotValue(snapshot.val()) });
+      recomputeAll();
+    });
+
+    detachBirdiesBetsListener = onValue(birdiesBetsRef, (snapshot) => {
+      set({ birdiesBets: birdiesBetsFromSnapshotValue(snapshot.val()) });
+      recomputeAll();
+    });
+
+    detachDoublesBetsListener = onValue(doublesBetsRef, (snapshot) => {
+      set({ doublesBets: doublesBetsFromSnapshotValue(snapshot.val()) });
       recomputeAll();
     });
 

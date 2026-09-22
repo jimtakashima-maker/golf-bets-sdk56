@@ -21,6 +21,8 @@ import {
   SkinsPayoutMode,
   StrokePlayBet,
   StrokePlayPayoutMode,
+  BirdiesBet,
+  DoublesBet,
   PressStackingMode,
   MAX_HANDICAP,
   StakesUnit,
@@ -62,6 +64,8 @@ export default function RoundPrepScreen() {
   const matchPlayAmounts = useRoundState((state) => state.matchPlayAmounts);
   const skinsBets = useRoundState((state) => state.skinsBets);
   const strokePlayBets = useRoundState((state) => state.strokePlayBets);
+  const birdiesBets = useRoundState((state) => state.birdiesBets);
+  const doublesBets = useRoundState((state) => state.doublesBets);
   const totalHoles = useRoundState((state) => state.totalHoles);
   const setTotalHoles = useRoundState((state) => state.setTotalHoles);
   const handicaps = useRoundState((state) => state.handicaps);
@@ -99,6 +103,18 @@ export default function RoundPrepScreen() {
   const setStrokePlayBetValuePerStroke = useRoundState((state) => state.setStrokePlayBetValuePerStroke);
   const setStrokePlayBetBuyIn = useRoundState((state) => state.setStrokePlayBetBuyIn);
   const setPlayerInStrokePlayBet = useRoundState((state) => state.setPlayerInStrokePlayBet);
+  const createBirdiesBet = useRoundState((state) => state.createBirdiesBet);
+  const renameBirdiesBet = useRoundState((state) => state.renameBirdiesBet);
+  const deleteBirdiesBet = useRoundState((state) => state.deleteBirdiesBet);
+  const setBirdiesBetNet = useRoundState((state) => state.setBirdiesBetNet);
+  const setBirdiesBetAmount = useRoundState((state) => state.setBirdiesBetAmount);
+  const setPlayerInBirdiesBet = useRoundState((state) => state.setPlayerInBirdiesBet);
+  const createDoublesBet = useRoundState((state) => state.createDoublesBet);
+  const renameDoublesBet = useRoundState((state) => state.renameDoublesBet);
+  const deleteDoublesBet = useRoundState((state) => state.deleteDoublesBet);
+  const setDoublesBetNet = useRoundState((state) => state.setDoublesBetNet);
+  const setDoublesBetAmount = useRoundState((state) => state.setDoublesBetAmount);
+  const setPlayerInDoublesBet = useRoundState((state) => state.setPlayerInDoublesBet);
   const setPlayerHandicap = useRoundState((state) => state.setPlayerHandicap);
   const nassauAutoPress = useRoundState((state) => state.nassauAutoPress);
   const nassauPressStacking = useRoundState((state) => state.nassauPressStacking);
@@ -154,7 +170,12 @@ export default function RoundPrepScreen() {
   };
 
   const hasExistingBets =
-    teams.length > 0 || matchPlayTeams.length > 0 || skinsBets.length > 0 || strokePlayBets.length > 0;
+    teams.length > 0 ||
+    matchPlayTeams.length > 0 ||
+    skinsBets.length > 0 ||
+    strokePlayBets.length > 0 ||
+    birdiesBets.length > 0 ||
+    doublesBets.length > 0;
 
   // Rolls a full slate of bets - team bet, Skins, Stroke Play, whichever
   // random.ts decides to include - sized so no player's worst case passes
@@ -292,6 +313,18 @@ export default function RoundPrepScreen() {
     await setPlayerInStrokePlayBet(betId, addModalPlayerId, true);
   };
 
+  const handleCreateBirdiesBetAndAssign = async () => {
+    if (!addModalPlayerId) return;
+    const betId = await createBirdiesBet();
+    await setPlayerInBirdiesBet(betId, addModalPlayerId, true);
+  };
+
+  const handleCreateDoublesBetAndAssign = async () => {
+    if (!addModalPlayerId) return;
+    const betId = await createDoublesBet();
+    await setPlayerInDoublesBet(betId, addModalPlayerId, true);
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Pressable style={styles.surpriseCard} onPress={() => setShowSurpriseModal(true)}>
@@ -402,6 +435,18 @@ export default function RoundPrepScreen() {
         onSetStrokePlayBetValuePerStroke={setStrokePlayBetValuePerStroke}
         onSetStrokePlayBetBuyIn={setStrokePlayBetBuyIn}
         onCreateStrokePlayBet={() => createStrokePlayBet()}
+        birdiesBets={birdiesBets}
+        onRenameBirdiesBet={renameBirdiesBet}
+        onDeleteBirdiesBet={deleteBirdiesBet}
+        onSetBirdiesBetNet={setBirdiesBetNet}
+        onSetBirdiesBetAmount={setBirdiesBetAmount}
+        onCreateBirdiesBet={() => createBirdiesBet()}
+        doublesBets={doublesBets}
+        onRenameDoublesBet={renameDoublesBet}
+        onDeleteDoublesBet={deleteDoublesBet}
+        onSetDoublesBetNet={setDoublesBetNet}
+        onSetDoublesBetAmount={setDoublesBetAmount}
+        onCreateDoublesBet={() => createDoublesBet()}
         totalHoles={totalHoles}
         playerTeams={playerTeams}
         matchPlayPlayerTeams={matchPlayPlayerTeams}
@@ -411,6 +456,8 @@ export default function RoundPrepScreen() {
         onSetMatchPlayPlayerTeam={setMatchPlayPlayerTeam}
         onSetPlayerInSkinsBet={setPlayerInSkinsBet}
         onSetPlayerInStrokePlayBet={setPlayerInStrokePlayBet}
+        onSetPlayerInBirdiesBet={setPlayerInBirdiesBet}
+        onSetPlayerInDoublesBet={setPlayerInDoublesBet}
         groups={groups}
       />
 
@@ -459,6 +506,8 @@ export default function RoundPrepScreen() {
         matchPlayAmounts={matchPlayAmounts}
         skinsBets={skinsBets}
         strokePlayBets={strokePlayBets}
+        birdiesBets={birdiesBets}
+        doublesBets={doublesBets}
         onSetPlayerTeam={setPlayerTeam}
         onCreateTeam={handleCreateTeamAndAssign}
         onSetMatchPlayPlayerTeam={setMatchPlayPlayerTeam}
@@ -467,6 +516,10 @@ export default function RoundPrepScreen() {
         onCreateSkinsBet={handleCreateSkinsBetAndAssign}
         onSetPlayerInStrokePlayBet={setPlayerInStrokePlayBet}
         onCreateStrokePlayBet={handleCreateStrokePlayBetAndAssign}
+        onSetPlayerInBirdiesBet={setPlayerInBirdiesBet}
+        onCreateBirdiesBet={handleCreateBirdiesBetAndAssign}
+        onSetPlayerInDoublesBet={setPlayerInDoublesBet}
+        onCreateDoublesBet={handleCreateDoublesBetAndAssign}
         totalHoles={totalHoles}
         allPlayers={allPlayers}
         groups={groups}
@@ -744,6 +797,8 @@ function AddToModal({
   matchPlayAmounts,
   skinsBets,
   strokePlayBets,
+  birdiesBets,
+  doublesBets,
   onSetPlayerTeam,
   onCreateTeam,
   onSetMatchPlayPlayerTeam,
@@ -752,6 +807,10 @@ function AddToModal({
   onCreateSkinsBet,
   onSetPlayerInStrokePlayBet,
   onCreateStrokePlayBet,
+  onSetPlayerInBirdiesBet,
+  onCreateBirdiesBet,
+  onSetPlayerInDoublesBet,
+  onCreateDoublesBet,
   totalHoles,
   allPlayers,
   groups,
@@ -769,6 +828,8 @@ function AddToModal({
   matchPlayAmounts: { front: number; back: number; overall: number };
   skinsBets: SkinsBet[];
   strokePlayBets: StrokePlayBet[];
+  birdiesBets: BirdiesBet[];
+  doublesBets: DoublesBet[];
   onSetPlayerTeam: (playerId: string, teamId: string | null) => void;
   onCreateTeam: () => void;
   onSetMatchPlayPlayerTeam: (playerId: string, teamId: string | null) => void;
@@ -777,6 +838,10 @@ function AddToModal({
   onCreateSkinsBet: () => void;
   onSetPlayerInStrokePlayBet: (betId: string, playerId: string, inBet: boolean) => void;
   onCreateStrokePlayBet: () => void;
+  onSetPlayerInBirdiesBet: (betId: string, playerId: string, inBet: boolean) => void;
+  onCreateBirdiesBet: () => void;
+  onSetPlayerInDoublesBet: (betId: string, playerId: string, inBet: boolean) => void;
+  onCreateDoublesBet: () => void;
   totalHoles: number;
   allPlayers: Player[];
   groups: Group[];
@@ -913,6 +978,50 @@ function AddToModal({
           <Text style={styles.modalAddRowText}>+ New Stroke Play Bet</Text>
         </Pressable>
 
+        <Text style={[styles.modalSectionLabel, styles.modalSectionLabelSpaced]}>Birdies Bets</Text>
+        {birdiesBets.length === 0 && <Text style={styles.modalEmptyHint}>No Birdies bets yet</Text>}
+        {birdiesBets.map((bet) => {
+          const selected = bet.playerIds.includes(player.id);
+          return (
+            <Pressable
+              key={bet.id}
+              style={[styles.modalRow, selected && styles.modalRowSelected]}
+              onPress={() => onSetPlayerInBirdiesBet(bet.id, player.id, !selected)}
+            >
+              <Text style={[styles.modalRowText, selected && styles.modalRowTextSelected]}>
+                {selected ? '✓ ' : ''}
+                {bet.name}
+              </Text>
+              <Text style={styles.modalRowSubtext}>{describeBirdiesBet(bet)}</Text>
+            </Pressable>
+          );
+        })}
+        <Pressable style={styles.modalAddRow} onPress={onCreateBirdiesBet}>
+          <Text style={styles.modalAddRowText}>+ New Birdies Bet</Text>
+        </Pressable>
+
+        <Text style={[styles.modalSectionLabel, styles.modalSectionLabelSpaced]}>Doubles Bets</Text>
+        {doublesBets.length === 0 && <Text style={styles.modalEmptyHint}>No Doubles bets yet</Text>}
+        {doublesBets.map((bet) => {
+          const selected = bet.playerIds.includes(player.id);
+          return (
+            <Pressable
+              key={bet.id}
+              style={[styles.modalRow, selected && styles.modalRowSelected]}
+              onPress={() => onSetPlayerInDoublesBet(bet.id, player.id, !selected)}
+            >
+              <Text style={[styles.modalRowText, selected && styles.modalRowTextSelected]}>
+                {selected ? '✓ ' : ''}
+                {bet.name}
+              </Text>
+              <Text style={styles.modalRowSubtext}>{describeDoublesBet(bet)}</Text>
+            </Pressable>
+          );
+        })}
+        <Pressable style={styles.modalAddRow} onPress={onCreateDoublesBet}>
+          <Text style={styles.modalAddRowText}>+ New Doubles Bet</Text>
+        </Pressable>
+
         <Pressable style={styles.modalCloseButton} onPress={onClose}>
           <Text style={styles.modalCloseButtonText}>Done</Text>
         </Pressable>
@@ -1026,6 +1135,30 @@ function describeStrokePlayBet(bet: StrokePlayBet): string {
   return `${description} • ${count} player${count === 1 ? '' : 's'}`;
 }
 
+function describeBirdiesBet(bet: BirdiesBet): string {
+  const unit = bet.unit;
+  const parts: string[] = [
+    bet.amountPerBirdie > 0 ? `${formatStakeAmount(bet.amountPerBirdie, unit)}/point (eagle pays 2x)` : `No ${stakesSymbol(unit)} set`,
+  ];
+  if (bet.net) parts.push('net');
+
+  const count = bet.playerIds.length;
+  const description = parts.join(', ');
+  return `${description} • ${count} player${count === 1 ? '' : 's'}`;
+}
+
+function describeDoublesBet(bet: DoublesBet): string {
+  const unit = bet.unit;
+  const parts: string[] = [
+    bet.amountPerDouble > 0 ? `${formatStakeAmount(bet.amountPerDouble, unit)}/double bogey+` : `No ${stakesSymbol(unit)} set`,
+  ];
+  if (bet.net) parts.push('net');
+
+  const count = bet.playerIds.length;
+  const description = parts.join(', ');
+  return `${description} • ${count} player${count === 1 ? '' : 's'}`;
+}
+
 // The compact, always-visible strip for bet-level money and rules - the
 // stuff that's set once and rarely touched, as opposed to who's playing
 // which bet (handled per-player above via "Add to"). One line per team or
@@ -1068,6 +1201,18 @@ function BetSettings({
   onSetStrokePlayBetValuePerStroke,
   onSetStrokePlayBetBuyIn,
   onCreateStrokePlayBet,
+  birdiesBets,
+  onRenameBirdiesBet,
+  onDeleteBirdiesBet,
+  onSetBirdiesBetNet,
+  onSetBirdiesBetAmount,
+  onCreateBirdiesBet,
+  doublesBets,
+  onRenameDoublesBet,
+  onDeleteDoublesBet,
+  onSetDoublesBetNet,
+  onSetDoublesBetAmount,
+  onCreateDoublesBet,
   totalHoles,
   playerTeams,
   matchPlayPlayerTeams,
@@ -1077,6 +1222,8 @@ function BetSettings({
   onSetMatchPlayPlayerTeam,
   onSetPlayerInSkinsBet,
   onSetPlayerInStrokePlayBet,
+  onSetPlayerInBirdiesBet,
+  onSetPlayerInDoublesBet,
   groups,
 }: {
   nassauNet: boolean;
@@ -1116,6 +1263,18 @@ function BetSettings({
   onSetStrokePlayBetValuePerStroke: (betId: string, valuePerStroke: number) => void;
   onSetStrokePlayBetBuyIn: (betId: string, buyIn: number) => void;
   onCreateStrokePlayBet: () => void;
+  birdiesBets: BirdiesBet[];
+  onRenameBirdiesBet: (betId: string, name: string) => void;
+  onDeleteBirdiesBet: (betId: string) => void;
+  onSetBirdiesBetNet: (betId: string, net: boolean) => void;
+  onSetBirdiesBetAmount: (betId: string, amountPerBirdie: number) => void;
+  onCreateBirdiesBet: () => void;
+  doublesBets: DoublesBet[];
+  onRenameDoublesBet: (betId: string, name: string) => void;
+  onDeleteDoublesBet: (betId: string) => void;
+  onSetDoublesBetNet: (betId: string, net: boolean) => void;
+  onSetDoublesBetAmount: (betId: string, amountPerDouble: number) => void;
+  onCreateDoublesBet: () => void;
   totalHoles: number;
   playerTeams: PlayerTeams;
   matchPlayPlayerTeams: PlayerTeams;
@@ -1125,6 +1284,8 @@ function BetSettings({
   onSetMatchPlayPlayerTeam: (playerId: string, teamId: string | null) => void;
   onSetPlayerInSkinsBet: (betId: string, playerId: string, inBet: boolean) => void;
   onSetPlayerInStrokePlayBet: (betId: string, playerId: string, inBet: boolean) => void;
+  onSetPlayerInBirdiesBet: (betId: string, playerId: string, inBet: boolean) => void;
+  onSetPlayerInDoublesBet: (betId: string, playerId: string, inBet: boolean) => void;
   groups: Group[];
 }) {
   // Every bet type starts collapsed unless the round already has something
@@ -1140,6 +1301,8 @@ function BetSettings({
   const [matchPlayOpen, setMatchPlayOpen] = useState(matchPlayTeams.length > 0);
   const [skinsOpen, setSkinsOpen] = useState(skinsBets.length > 0);
   const [strokePlayOpen, setStrokePlayOpen] = useState(strokePlayBets.length > 0);
+  const [birdiesOpen, setBirdiesOpen] = useState(birdiesBets.length > 0);
+  const [doublesOpen, setDoublesOpen] = useState(doublesBets.length > 0);
 
   useEffect(() => {
     if (teams.length > 0) setNassauOpen(true);
@@ -1153,6 +1316,12 @@ function BetSettings({
   useEffect(() => {
     if (strokePlayBets.length > 0) setStrokePlayOpen(true);
   }, [strokePlayBets.length]);
+  useEffect(() => {
+    if (birdiesBets.length > 0) setBirdiesOpen(true);
+  }, [birdiesBets.length]);
+  useEffect(() => {
+    if (doublesBets.length > 0) setDoublesOpen(true);
+  }, [doublesBets.length]);
 
   return (
     <View style={styles.settingsContainer}>
@@ -1307,6 +1476,64 @@ function BetSettings({
           ))}
           <Pressable style={styles.settingsAddRow} onPress={onCreateStrokePlayBet}>
             <Text style={styles.settingsAddRowText}>+ New Stroke Play Bet</Text>
+          </Pressable>
+        </>
+      )}
+
+      <SectionHeader
+        title="Birdies"
+        open={birdiesOpen}
+        onToggle={() => setBirdiesOpen((prev) => !prev)}
+        summary={birdiesBets.length > 0 ? `${birdiesBets.length} bet${birdiesBets.length === 1 ? '' : 's'}` : 'Not used'}
+      />
+      {birdiesOpen && (
+        <>
+          {birdiesBets.map((bet) => (
+            <BirdiesSettingsRow
+              key={bet.id}
+              bet={bet}
+              onRename={(name) => onRenameBirdiesBet(bet.id, name)}
+              onSetNet={(net) => onSetBirdiesBetNet(bet.id, net)}
+              onSetAmount={(value) => onSetBirdiesBetAmount(bet.id, value)}
+              onDelete={() => onDeleteBirdiesBet(bet.id)}
+              allPlayers={allPlayers}
+              amIIn={playerId != null && bet.playerIds.includes(playerId)}
+              onToggleMe={
+                playerId ? () => onSetPlayerInBirdiesBet(bet.id, playerId, !bet.playerIds.includes(playerId)) : undefined
+              }
+            />
+          ))}
+          <Pressable style={styles.settingsAddRow} onPress={onCreateBirdiesBet}>
+            <Text style={styles.settingsAddRowText}>+ New Birdies Bet</Text>
+          </Pressable>
+        </>
+      )}
+
+      <SectionHeader
+        title="Doubles"
+        open={doublesOpen}
+        onToggle={() => setDoublesOpen((prev) => !prev)}
+        summary={doublesBets.length > 0 ? `${doublesBets.length} bet${doublesBets.length === 1 ? '' : 's'}` : 'Not used'}
+      />
+      {doublesOpen && (
+        <>
+          {doublesBets.map((bet) => (
+            <DoublesSettingsRow
+              key={bet.id}
+              bet={bet}
+              onRename={(name) => onRenameDoublesBet(bet.id, name)}
+              onSetNet={(net) => onSetDoublesBetNet(bet.id, net)}
+              onSetAmount={(value) => onSetDoublesBetAmount(bet.id, value)}
+              onDelete={() => onDeleteDoublesBet(bet.id)}
+              allPlayers={allPlayers}
+              amIIn={playerId != null && bet.playerIds.includes(playerId)}
+              onToggleMe={
+                playerId ? () => onSetPlayerInDoublesBet(bet.id, playerId, !bet.playerIds.includes(playerId)) : undefined
+              }
+            />
+          ))}
+          <Pressable style={styles.settingsAddRow} onPress={onCreateDoublesBet}>
+            <Text style={styles.settingsAddRowText}>+ New Doubles Bet</Text>
           </Pressable>
         </>
       )}
@@ -1772,6 +1999,213 @@ function StrokePlaySettingsRow({
   );
 }
 
+// A flat-payout-only bet settings row - just a name, one $ amount, a Net
+// toggle, and who's in it. Shared shape for Birdies and Doubles, which
+// unlike Skins/Stroke Play have no carryover rule and no pot mode to
+// choose between - every point/double is worth a fixed amount the moment
+// it happens, full stop.
+function BirdiesSettingsRow({
+  bet,
+  onRename,
+  onSetNet,
+  onSetAmount,
+  onDelete,
+  allPlayers,
+  amIIn,
+  onToggleMe,
+}: {
+  bet: BirdiesBet;
+  onRename: (name: string) => void;
+  onSetNet: (net: boolean) => void;
+  onSetAmount: (amountPerBirdie: number) => void;
+  onDelete: () => void;
+  allPlayers: Player[];
+  amIIn?: boolean;
+  onToggleMe?: () => void;
+}) {
+  const unit = bet.unit;
+  const setBirdiesBetUnit = useRoundState((state) => state.setBirdiesBetUnit);
+  const [nameDraft, setNameDraft] = useState(bet.name);
+  const [valueDraft, setValueDraft] = useState(String(bet.amountPerBirdie));
+  const [valueFocused, setValueFocused] = useState(false);
+
+  // Keeps this in sync with an amount set from outside this input - same
+  // reason as Skins/Stroke Play's own value fields (the random bet
+  // generator, in particular). Skipped while focused so it never clobbers
+  // active typing.
+  useEffect(() => {
+    if (!valueFocused) setValueDraft(String(bet.amountPerBirdie));
+  }, [bet.amountPerBirdie, valueFocused]);
+
+  const commitName = () => {
+    const trimmed = nameDraft.trim();
+    if (trimmed && trimmed !== bet.name) {
+      onRename(trimmed);
+    } else {
+      setNameDraft(bet.name);
+    }
+  };
+
+  const commitValue = () => {
+    const parsed = Number(valueDraft);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      onSetAmount(parsed);
+      setValueDraft(String(parsed));
+    } else {
+      setValueDraft(String(bet.amountPerBirdie));
+    }
+  };
+
+  return (
+    <View style={styles.birdiesSettingsCard}>
+      <View style={styles.settingsRow}>
+        <TextInput
+          style={styles.settingsNameInput}
+          value={nameDraft}
+          onChangeText={setNameDraft}
+          onEndEditing={commitName}
+          onBlur={commitName}
+        />
+        <StakesUnitToggle unit={unit} onChange={(newUnit) => setBirdiesBetUnit(bet.id, newUnit)} />
+        <RemoveButton label={bet.name} onConfirm={onDelete} />
+      </View>
+
+      <View style={styles.birdiesSettingsOptionsRow}>
+        <View style={styles.valueField}>
+          <Text style={styles.valueLabel}>{stakesSymbol(unit)}/point</Text>
+          <TextInput
+            style={styles.valueInput}
+            value={valueDraft}
+            onChangeText={setValueDraft}
+            onFocus={() => setValueFocused(true)}
+            onEndEditing={commitValue}
+            onBlur={() => {
+              setValueFocused(false);
+              commitValue();
+            }}
+            keyboardType="decimal-pad"
+          />
+        </View>
+        <Text style={styles.betHint}>Birdie = 1 point, eagle = 2</Text>
+        <Pressable style={styles.toggleChip} onPress={() => onSetNet(!bet.net)}>
+          <View style={[styles.checkbox, bet.net && styles.checkboxChecked]}>
+            {bet.net && <Text style={styles.checkboxMark}>{'✓'}</Text>}
+          </View>
+          <Text style={styles.toggleChipText}>Net</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.settingsMembersRow}>
+        <Text style={styles.settingsRowSubtext}>{describeBetMembers(bet.playerIds, allPlayers)}</Text>
+        {onToggleMe && (
+          <Pressable style={styles.addMeChip} onPress={onToggleMe}>
+            <Text style={styles.addMeChipText}>{amIIn ? 'Remove me' : 'Add me'}</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function DoublesSettingsRow({
+  bet,
+  onRename,
+  onSetNet,
+  onSetAmount,
+  onDelete,
+  allPlayers,
+  amIIn,
+  onToggleMe,
+}: {
+  bet: DoublesBet;
+  onRename: (name: string) => void;
+  onSetNet: (net: boolean) => void;
+  onSetAmount: (amountPerDouble: number) => void;
+  onDelete: () => void;
+  allPlayers: Player[];
+  amIIn?: boolean;
+  onToggleMe?: () => void;
+}) {
+  const unit = bet.unit;
+  const setDoublesBetUnit = useRoundState((state) => state.setDoublesBetUnit);
+  const [nameDraft, setNameDraft] = useState(bet.name);
+  const [valueDraft, setValueDraft] = useState(String(bet.amountPerDouble));
+  const [valueFocused, setValueFocused] = useState(false);
+
+  useEffect(() => {
+    if (!valueFocused) setValueDraft(String(bet.amountPerDouble));
+  }, [bet.amountPerDouble, valueFocused]);
+
+  const commitName = () => {
+    const trimmed = nameDraft.trim();
+    if (trimmed && trimmed !== bet.name) {
+      onRename(trimmed);
+    } else {
+      setNameDraft(bet.name);
+    }
+  };
+
+  const commitValue = () => {
+    const parsed = Number(valueDraft);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      onSetAmount(parsed);
+      setValueDraft(String(parsed));
+    } else {
+      setValueDraft(String(bet.amountPerDouble));
+    }
+  };
+
+  return (
+    <View style={styles.doublesSettingsCard}>
+      <View style={styles.settingsRow}>
+        <TextInput
+          style={styles.settingsNameInput}
+          value={nameDraft}
+          onChangeText={setNameDraft}
+          onEndEditing={commitName}
+          onBlur={commitName}
+        />
+        <StakesUnitToggle unit={unit} onChange={(newUnit) => setDoublesBetUnit(bet.id, newUnit)} />
+        <RemoveButton label={bet.name} onConfirm={onDelete} />
+      </View>
+
+      <View style={styles.doublesSettingsOptionsRow}>
+        <View style={styles.valueField}>
+          <Text style={styles.valueLabel}>{stakesSymbol(unit)}/double</Text>
+          <TextInput
+            style={styles.valueInput}
+            value={valueDraft}
+            onChangeText={setValueDraft}
+            onFocus={() => setValueFocused(true)}
+            onEndEditing={commitValue}
+            onBlur={() => {
+              setValueFocused(false);
+              commitValue();
+            }}
+            keyboardType="decimal-pad"
+          />
+        </View>
+        <Text style={styles.betHint}>Double bogey or worse pays everyone else</Text>
+        <Pressable style={styles.toggleChip} onPress={() => onSetNet(!bet.net)}>
+          <View style={[styles.checkbox, bet.net && styles.checkboxChecked]}>
+            {bet.net && <Text style={styles.checkboxMark}>{'✓'}</Text>}
+          </View>
+          <Text style={styles.toggleChipText}>Net</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.settingsMembersRow}>
+        <Text style={styles.settingsRowSubtext}>{describeBetMembers(bet.playerIds, allPlayers)}</Text>
+        {onToggleMe && (
+          <Pressable style={styles.addMeChip} onPress={onToggleMe}>
+            <Text style={styles.addMeChipText}>{amIIn ? 'Remove me' : 'Add me'}</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -2178,6 +2612,37 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 6,
+  },
+  birdiesSettingsCard: {
+    backgroundColor: '#eaf7ee',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+  },
+  birdiesSettingsOptionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 6,
+  },
+  doublesSettingsCard: {
+    backgroundColor: '#fbeceb',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+  },
+  doublesSettingsOptionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 6,
+  },
+  betHint: {
+    color: '#889',
+    fontSize: 11,
+    flexShrink: 1,
   },
   payoutModeChip: {
     paddingVertical: 4,

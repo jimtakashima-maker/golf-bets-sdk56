@@ -5,6 +5,8 @@ import NassauStatus from '../components/NassauStatus';
 import MatchPlayStatus from '../components/MatchPlayStatus';
 import SkinsStatus from '../components/SkinsStatus';
 import StrokePlayStatus from '../components/StrokePlayStatus';
+import BirdiesStatus from '../components/BirdiesStatus';
+import DoublesStatus from '../components/DoublesStatus';
 
 type ScoringMode = 'gross' | 'net';
 
@@ -175,6 +177,8 @@ export default function LeaderboardScreen() {
   const matchPlay = useRoundState((state) => state.matchPlay);
   const skins = useRoundState((state) => state.skins);
   const strokePlay = useRoundState((state) => state.strokePlay);
+  const birdies = useRoundState((state) => state.birdies);
+  const doubles = useRoundState((state) => state.doubles);
   const totalHoles = useRoundState((state) => state.totalHoles);
   const handicaps = useRoundState((state) => state.handicaps);
   const [mode, setMode] = useState<ScoringMode>('gross');
@@ -214,6 +218,8 @@ export default function LeaderboardScreen() {
       <MatchPlayStatus matchPlay={matchPlay} players={allPlayers} totalHoles={totalHoles} />
       <SkinsStatus skins={skins} />
       <StrokePlayStatus strokePlay={strokePlay} players={allPlayers} />
+      <BirdiesStatus birdies={birdies} />
+      <DoublesStatus doubles={doubles} />
     </ScrollView>
   );
 }

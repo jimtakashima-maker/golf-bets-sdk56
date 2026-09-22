@@ -5,6 +5,8 @@ import {
   NassauState,
   SkinsState,
   StrokePlayState,
+  BirdiesState,
+  DoublesState,
   NassauPressResult,
   Settlement,
   SettlementLineItem,
@@ -34,6 +36,8 @@ function openItems(
   matchPlay: NassauState,
   skins: SkinsState,
   strokePlay: StrokePlayState,
+  birdies: BirdiesState,
+  doubles: DoublesState,
   totalHoles: number,
   nassauPressResults: NassauPressResult[]
 ): string[] {
@@ -69,6 +73,16 @@ function openItems(
         .map((total) => `${total.label} (${total.holesPlayed}/${totalHoles})`);
       const suffix = waitingOn.length > 0 ? ` (waiting on ${waitingOn.join(', ')})` : '';
       items.push(`Stroke Play: ${bet.name}${suffix}`);
+    }
+  }
+  for (const bet of birdies) {
+    if (bet.totals.length > 0 && bet.holesResolved < totalHoles) {
+      items.push(`Birdies: ${bet.name}`);
+    }
+  }
+  for (const bet of doubles) {
+    if (bet.totals.length > 0 && bet.holesResolved < totalHoles) {
+      items.push(`Doubles: ${bet.name}`);
     }
   }
   return items;
@@ -365,6 +379,8 @@ export default function SettlementScreen() {
   const matchPlay = useRoundState((state) => state.matchPlay);
   const skins = useRoundState((state) => state.skins);
   const strokePlay = useRoundState((state) => state.strokePlay);
+  const birdies = useRoundState((state) => state.birdies);
+  const doubles = useRoundState((state) => state.doubles);
   const totalHoles = useRoundState((state) => state.totalHoles);
   const roundCode = useRoundState((state) => state.roundCode);
   const paymentHandlesByUid = useRoundState((state) => state.paymentHandlesByUid);
@@ -380,8 +396,10 @@ export default function SettlementScreen() {
   // as "not settled yet" rather than just missing from the list.
   const allPlayers = groups.flatMap((group) => group.players);
   const settlementById = new Map(settlement.map((entry) => [entry.id, entry]));
-  const closed = allBetsClosed(nassau, matchPlay, skins, strokePlay, totalHoles, nassauPressResults);
-  const open = closed ? [] : openItems(nassau, matchPlay, skins, strokePlay, totalHoles, nassauPressResults);
+  const closed = allBetsClosed(nassau, matchPlay, skins, strokePlay, birdies, doubles, totalHoles, nassauPressResults);
+  const open = closed
+    ? []
+    : openItems(nassau, matchPlay, skins, strokePlay, birdies, doubles, totalHoles, nassauPressResults);
   const potCards = betCards.filter((card) => card.isPot);
   // Only worth recommending once every bet is actually final - a plan
   // built on totals that are still moving would just have to be redone.
