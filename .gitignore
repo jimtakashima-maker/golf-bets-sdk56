@@ -38,3 +38,7 @@ yarn-error.*
 *.tsbuildinfo
 
 # generated native folders
+
+# credentials / secrets - never commit
+cd golf-bets-sdk56.txt
+*.secrets.txt
