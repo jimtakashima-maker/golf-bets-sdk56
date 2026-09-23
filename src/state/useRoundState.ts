@@ -567,6 +567,26 @@ export interface HistoryEntry {
   breakdown: HistoryBreakdownItem[];
 }
 
+// A full re-fetch of one past round's data by its roundCode, built for the
+// History "View Round" screen. Unlike the live round in the main store
+// (roundCode/groups/settlement/etc. above), this never touches that state
+// and is never subscribed live except for payoutStatus - everything else
+// about a closed-out round is frozen, so one dbGet is enough. rounds/
+// {roundCode} is never deleted, so this works for any round still on
+// record, including ones from before this screen existed.
+export interface HistoricalRoundView {
+  roundCode: string;
+  courseName: string | null;
+  totalHoles: number;
+  createdAt: number | null;
+  holes: HolesInfo;
+  groups: Group[];
+  handicaps: PlayerHandicaps;
+  settlement: Settlement;
+  betCards: BetCard[];
+  payoutStatus: Record<string, PayoutStatusEntry>;
+}
+
 // A round is one outing that can contain several tee groups (whoever's
 // actually playing together on the course, whatever size that group is)
 // under the same round code. Score ENTRY is isolated per tee group -
@@ -733,6 +753,14 @@ interface RoundState {
   // time. Keyed the same way as PayoutStatusEntry: `${fromId}_${toId}`.
   payoutStatus: Record<string, PayoutStatusEntry>;
 
+  // The round currently open in History's "View Round" screen, if any -
+  // entirely separate from the live round state above so viewing a past
+  // round never disturbs (or gets disturbed by) a round this device is
+  // actively playing. Null whenever History's detail screen isn't open.
+  historicalRound: HistoricalRoundView | null;
+  historicalRoundLoading: boolean;
+  historicalRoundError: string | null;
+
   // Actions
   createRound: (hostName: string) => Promise<void>;
   previewRound: (code: string) => Promise<void>;
@@ -810,8 +838,21 @@ interface RoundState {
   loadPaymentHandles: () => Promise<void>;
   savePaymentHandles: (update: Partial<Omit<PaymentHandles, 'updatedAt'>>) => Promise<void>;
   loadPaymentHandlesForPlayers: (uids: string[]) => Promise<void>;
-  markPayoutSent: (fromId: string, toId: string, sent: boolean) => Promise<void>;
-  markPayoutConfirmed: (fromId: string, toId: string, confirmed: boolean) => Promise<void>;
+  // roundCode defaults to the live round (get().roundCode) when omitted -
+  // pass it explicitly to mark a payout on a past round from History
+  // without disturbing whatever round this device is actively playing.
+  markPayoutSent: (fromId: string, toId: string, sent: boolean, roundCode?: string) => Promise<void>;
+  markPayoutConfirmed: (fromId: string, toId: string, confirmed: boolean, roundCode?: string) => Promise<void>;
+  // One-time fetch + compute of a past round's full scorecard and
+  // settlement, by roundCode, into historicalRound - see
+  // HistoricalRoundView. Independent of the live round subscription.
+  loadHistoricalRound: (roundCode: string) => Promise<void>;
+  // Keeps historicalRound.payoutStatus live so a sent/confirmed toggle
+  // from either side of a past-round payout shows up without a refetch.
+  // Returns an unsubscribe function - call it when the detail screen
+  // unmounts.
+  subscribeToHistoricalPayoutStatus: (roundCode: string) => () => void;
+  clearHistoricalRound: () => void;
   submitFeedback: (text: string) => Promise<void>;
   fetchFeedback: () => Promise<FeedbackEntry[]>;
   loadCourses: () => Promise<void>;
@@ -2547,6 +2588,9 @@ export const useRoundState = create<RoundState>((set, get) => ({
   paymentHandles: null,
   paymentHandlesByUid: {},
   payoutStatus: {},
+  historicalRound: null,
+  historicalRoundLoading: false,
+  historicalRoundError: null,
 
   createRound: async (hostName) => {
     set({ status: 'connecting', errorMessage: null });
@@ -3482,34 +3526,269 @@ export const useRoundState = create<RoundState>((set, get) => ({
 
   // Only the payer can ever mark their own side sent (database.rules.json
   // enforces this too - this local uid check just avoids a doomed write).
-  // No local set() needed: the live payoutStatus listener from
-  // _subscribeToRound picks up the change and updates every device,
-  // including this one.
-  markPayoutSent: async (fromId, toId, sent) => {
-    const { roundCode } = get();
+  // No local set() needed for the live round: the payoutStatus listener
+  // from _subscribeToRound picks up the change and updates every device,
+  // including this one. A History caller passes its own roundCode (a
+  // past round is never the live one in this store) and updates its own
+  // historicalRound copy directly, since nothing subscribes it here.
+  markPayoutSent: async (fromId, toId, sent, roundCodeOverride) => {
+    const roundCode = roundCodeOverride ?? get().roundCode;
     if (!roundCode) return;
     await ensureSignedIn();
     const uid = auth.currentUser?.uid;
     if (!uid || uid !== fromId) return;
     const txId = `${fromId}_${toId}`;
+    const sentAt = sent ? Date.now() : null;
     await dbUpdate(ref(db, `rounds/${roundCode}/payoutStatus/${txId}`), {
       sentByPayer: sent,
-      sentAt: sent ? Date.now() : null,
+      sentAt,
     });
+    if (roundCodeOverride) {
+      set((state) =>
+        state.historicalRound && state.historicalRound.roundCode === roundCodeOverride
+          ? {
+              historicalRound: {
+                ...state.historicalRound,
+                payoutStatus: {
+                  ...state.historicalRound.payoutStatus,
+                  [txId]: {
+                    sentByPayer: sent,
+                    sentAt,
+                    confirmedByPayee: state.historicalRound.payoutStatus[txId]?.confirmedByPayee ?? false,
+                    confirmedAt: state.historicalRound.payoutStatus[txId]?.confirmedAt ?? null,
+                  },
+                },
+              },
+            }
+          : {}
+      );
+    }
   },
 
   // Mirror of markPayoutSent for the payee's side of the same transaction.
-  markPayoutConfirmed: async (fromId, toId, confirmed) => {
-    const { roundCode } = get();
+  markPayoutConfirmed: async (fromId, toId, confirmed, roundCodeOverride) => {
+    const roundCode = roundCodeOverride ?? get().roundCode;
     if (!roundCode) return;
     await ensureSignedIn();
     const uid = auth.currentUser?.uid;
     if (!uid || uid !== toId) return;
     const txId = `${fromId}_${toId}`;
+    const confirmedAt = confirmed ? Date.now() : null;
     await dbUpdate(ref(db, `rounds/${roundCode}/payoutStatus/${txId}`), {
       confirmedByPayee: confirmed,
-      confirmedAt: confirmed ? Date.now() : null,
+      confirmedAt,
     });
+    if (roundCodeOverride) {
+      set((state) =>
+        state.historicalRound && state.historicalRound.roundCode === roundCodeOverride
+          ? {
+              historicalRound: {
+                ...state.historicalRound,
+                payoutStatus: {
+                  ...state.historicalRound.payoutStatus,
+                  [txId]: {
+                    sentByPayer: state.historicalRound.payoutStatus[txId]?.sentByPayer ?? false,
+                    sentAt: state.historicalRound.payoutStatus[txId]?.sentAt ?? null,
+                    confirmedByPayee: confirmed,
+                    confirmedAt,
+                  },
+                },
+              },
+            }
+          : {}
+      );
+    }
+  },
+
+  // One-time fetch of a past round's full node, computed into the same
+  // settlement shape the live round produces (see recomputeAll below) -
+  // reads never expire under database.rules.json's round-level
+  // ".read": "auth != null", so this works for any round still on record
+  // regardless of how long ago it closed.
+  loadHistoricalRound: async (roundCode) => {
+    set({ historicalRoundLoading: true, historicalRoundError: null, historicalRound: null });
+    try {
+      await ensureSignedIn();
+      const snapshot = await dbGet(ref(db, `rounds/${roundCode}`));
+      if (!snapshot.exists()) {
+        set({ historicalRoundLoading: false, historicalRoundError: 'This round could no longer be found.' });
+        return;
+      }
+      const value = snapshot.val() as {
+        createdAt?: number;
+        courseName?: string | null;
+        holes?: HolesInfo;
+        groups?: Record<string, GroupSnapshotValue>;
+        teams?: TeamsSnapshotValue;
+        playerTeams?: PlayerTeams;
+        skinsBets?: unknown;
+        handicaps?: PlayerHandicaps;
+        nassauNet?: boolean;
+        nassauAmounts?: Partial<NassauAmounts>;
+        nassauAutoPress?: boolean;
+        nassauPressStacking?: PressStackingMode;
+        nassauPresses?: unknown;
+        totalHoles?: number;
+        matchPlayTeams?: TeamsSnapshotValue;
+        matchPlayPlayerTeams?: PlayerTeams;
+        matchPlayNet?: boolean;
+        matchPlayAmounts?: Partial<NassauAmounts>;
+        strokePlayBets?: unknown;
+        birdiesBets?: unknown;
+        doublesBets?: unknown;
+        payoutStatus?: Record<string, Partial<PayoutStatusEntry> | undefined>;
+      } | null;
+
+      const holes: HolesInfo = value?.holes ?? {};
+      const courseName = value?.courseName ?? null;
+      const groups = groupsFromSnapshotValue(value?.groups ?? null);
+      const teams = teamsFromSnapshotValue(value?.teams);
+      const playerTeams = value?.playerTeams ?? {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const skinsBets = skinsBetsFromSnapshotValue(value?.skinsBets as any);
+      const handicaps = value?.handicaps ?? {};
+      const nassauNet = value?.nassauNet === true;
+      const nassauAmounts: NassauAmounts = {
+        front: value?.nassauAmounts?.front ?? 0,
+        back: value?.nassauAmounts?.back ?? 0,
+        overall: value?.nassauAmounts?.overall ?? 0,
+      };
+      const nassauAutoPress = value?.nassauAutoPress === true;
+      const nassauPressStacking: PressStackingMode =
+        value?.nassauPressStacking === 'unlimited' || value?.nassauPressStacking === 'none'
+          ? value.nassauPressStacking
+          : 'single';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const nassauPressCalls = nassauPressCallsFromSnapshotValue(value?.nassauPresses as any);
+      const totalHoles = value?.totalHoles === 18 ? 18 : 9;
+      const matchPlayTeams = teamsFromSnapshotValue(value?.matchPlayTeams);
+      const matchPlayPlayerTeams = value?.matchPlayPlayerTeams ?? {};
+      const matchPlayNet = value?.matchPlayNet === true;
+      const matchPlayAmounts: NassauAmounts = {
+        front: value?.matchPlayAmounts?.front ?? 0,
+        back: value?.matchPlayAmounts?.back ?? 0,
+        overall: value?.matchPlayAmounts?.overall ?? 0,
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const strokePlayBets = strokePlayBetsFromSnapshotValue(value?.strokePlayBets as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const birdiesBets = birdiesBetsFromSnapshotValue(value?.birdiesBets as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const doublesBets = doublesBetsFromSnapshotValue(value?.doublesBets as any);
+
+      const payoutStatusRaw = value?.payoutStatus ?? {};
+      const payoutStatus: Record<string, PayoutStatusEntry> = {};
+      for (const [txId, entry] of Object.entries(payoutStatusRaw)) {
+        payoutStatus[txId] = {
+          sentByPayer: entry?.sentByPayer === true,
+          sentAt: entry?.sentAt ?? null,
+          confirmedByPayee: entry?.confirmedByPayee === true,
+          confirmedAt: entry?.confirmedAt ?? null,
+        };
+      }
+
+      const allPlayers = groups.flatMap((group) => group.players);
+      const grossScores = mergeGroupScores(groups);
+      const netScores = toNetScores(grossScores, holes, handicaps, allPlayers, totalHoles);
+      const playerGroupId = new Map<string, string>();
+      for (const group of groups) {
+        for (const player of group.players) {
+          playerGroupId.set(player.id, group.id);
+        }
+      }
+      const nassau = computeNassau(
+        allPlayers,
+        nassauNet ? netScores : grossScores,
+        teams,
+        playerTeams,
+        totalHoles,
+        playerGroupId
+      );
+      const nassauPressResults = computeNassauPressResults(
+        nassau,
+        nassauNet ? netScores : grossScores,
+        totalHoles,
+        nassauAutoPress,
+        nassauPressStacking,
+        nassauPressCalls
+      );
+      const matchPlay = computeNassau(
+        allPlayers,
+        matchPlayNet ? netScores : grossScores,
+        matchPlayTeams,
+        matchPlayPlayerTeams,
+        totalHoles
+      );
+      const skins = computeSkins(allPlayers, grossScores, netScores, skinsBets, totalHoles);
+      const strokePlay = computeStrokePlay(allPlayers, grossScores, netScores, holes, strokePlayBets, totalHoles);
+      const birdies = computeBirdies(allPlayers, grossScores, netScores, holes, birdiesBets, totalHoles);
+      const doubles = computeDoubles(allPlayers, grossScores, netScores, holes, doublesBets, totalHoles);
+      const { settlement, betCards } = computeSettlement(
+        allPlayers,
+        nassau,
+        nassauAmounts,
+        nassauPressResults,
+        matchPlay,
+        matchPlayAmounts,
+        skins,
+        skinsBets,
+        strokePlay,
+        strokePlayBets,
+        birdies,
+        birdiesBets,
+        doubles,
+        doublesBets,
+        totalHoles
+      );
+
+      set({
+        historicalRound: {
+          roundCode,
+          courseName,
+          totalHoles,
+          createdAt: value?.createdAt ?? null,
+          holes,
+          groups,
+          handicaps,
+          settlement,
+          betCards,
+          payoutStatus,
+        },
+        historicalRoundLoading: false,
+      });
+    } catch (error) {
+      set({ historicalRoundLoading: false, historicalRoundError: (error as Error).message });
+    }
+  },
+
+  // Only payoutStatus needs to stay live once historicalRound is loaded -
+  // everything else about a closed round is frozen, but both the payer and
+  // payee may be looking at the same past round's payout plan from their
+  // own History at the same time.
+  subscribeToHistoricalPayoutStatus: (roundCode) => {
+    const payoutStatusRef = ref(db, `rounds/${roundCode}/payoutStatus`);
+    const detach = onValue(payoutStatusRef, (snapshot) => {
+      const value = (snapshot.val() ?? {}) as Record<string, Partial<PayoutStatusEntry> | undefined>;
+      const payoutStatus: Record<string, PayoutStatusEntry> = {};
+      for (const [txId, entry] of Object.entries(value)) {
+        payoutStatus[txId] = {
+          sentByPayer: entry?.sentByPayer === true,
+          sentAt: entry?.sentAt ?? null,
+          confirmedByPayee: entry?.confirmedByPayee === true,
+          confirmedAt: entry?.confirmedAt ?? null,
+        };
+      }
+      set((state) =>
+        state.historicalRound && state.historicalRound.roundCode === roundCode
+          ? { historicalRound: { ...state.historicalRound, payoutStatus } }
+          : {}
+      );
+    });
+    return () => detach();
+  },
+
+  clearHistoricalRound: () => {
+    set({ historicalRound: null, historicalRoundLoading: false, historicalRoundError: null });
   },
 
   // Anyone can write one (own name attached, but nothing else about the

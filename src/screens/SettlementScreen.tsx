@@ -18,14 +18,26 @@ import {
 } from '../state/useRoundState';
 import { auth } from '../lib/firebase';
 
-function formatAmount(amount: number): string {
+export function formatAmount(amount: number): string {
   const rounded = Math.abs(Math.round(amount * 100) / 100);
   return `$${rounded.toFixed(2)}`;
 }
 
-function formatSigned(amount: number): string {
+export function formatSigned(amount: number): string {
   if (amount === 0) return formatAmount(0);
   return amount > 0 ? `+${formatAmount(amount)}` : `-${formatAmount(amount)}`;
+}
+
+// "Sep 20, 4:32 PM" - used only for the locked, timestamped payout status
+// in History (see PayoutStatusRow's locked/sentAt/confirmedAt props); the
+// live round has no need for it since its toggles stay freely reversible.
+export function formatDateTime(ms: number): string {
+  return new Date(ms).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 // Names every matchup/bet that's still holding the round open, so "Matches
@@ -88,7 +100,7 @@ function openItems(
   return items;
 }
 
-interface PayoutTransaction {
+export interface PayoutTransaction {
   fromId: string;
   fromLabel: string;
   toId: string;
@@ -102,7 +114,7 @@ interface PayoutTransaction {
 // personally lost, which usually means way more, smaller transactions
 // than actually necessary once wins and losses across different bets
 // cancel out for the same two players.
-function computePayoutPlan(settlement: Settlement): PayoutTransaction[] {
+export function computePayoutPlan(settlement: Settlement): PayoutTransaction[] {
   // Work in integer cents so floating point drift can't strand a penny or
   // leave a near-zero transaction on the plan.
   const balances = settlement
@@ -178,7 +190,7 @@ function openCashApp(handle: string, amount: number) {
 // nothing saved themselves for a deep link to work, only the app installed.
 // Zelle and a custom "Other" method have no reliable link format, so those
 // render as plain text for the payer to copy by hand instead of a button.
-function PaymentOptions({ handles, amount, note }: { handles?: PaymentHandles; amount: number; note: string }) {
+export function PaymentOptions({ handles, amount, note }: { handles?: PaymentHandles; amount: number; note: string }) {
   if (!handles) return null;
   const buttons: { key: string; label: string; onPress: () => void }[] = [];
   if (handles.venmo) {
@@ -223,13 +235,22 @@ function PaymentOptions({ handles, amount, note }: { handles?: PaymentHandles; a
 // which is what makes the two independent checks meaningful: money isn't
 // "settled" until both the person who paid and the person who got paid
 // say so.
-function PayoutStatusRow({
+//
+// `locked` is History-only (the live round always leaves both sides freely
+// reversible, in case of a mis-tap mid-round): once true, a flag that's
+// already on can never be toggled back off, and a small info button
+// appears next to it - tap to reveal exactly when it was set, from
+// sentAt/confirmedAt, in a little info bubble under the row.
+export function PayoutStatusRow({
   isPayer,
   isPayee,
   sentByPayer,
   confirmedByPayee,
   onToggleSent,
   onToggleConfirmed,
+  locked,
+  sentAt,
+  confirmedAt,
 }: {
   isPayer: boolean;
   isPayee: boolean;
@@ -237,27 +258,69 @@ function PayoutStatusRow({
   confirmedByPayee: boolean;
   onToggleSent: () => void;
   onToggleConfirmed: () => void;
+  locked?: boolean;
+  sentAt?: number | null;
+  confirmedAt?: number | null;
 }) {
+  const [sentInfoOpen, setSentInfoOpen] = useState(false);
+  const [confirmedInfoOpen, setConfirmedInfoOpen] = useState(false);
+  const sentLocked = !!locked && sentByPayer;
+  const confirmedLocked = !!locked && confirmedByPayee;
+
   return (
-    <View style={styles.payoutStatusRow}>
-      <Pressable
-        style={[styles.statusChip, sentByPayer && styles.statusChipDone]}
-        onPress={isPayer ? onToggleSent : undefined}
-        disabled={!isPayer}
-      >
-        <Text style={[styles.statusChipText, sentByPayer && styles.statusChipTextDone]}>
-          {sentByPayer ? 'Sent \u2713' : isPayer ? 'Mark Sent' : 'Not Sent'}
-        </Text>
-      </Pressable>
-      <Pressable
-        style={[styles.statusChip, confirmedByPayee && styles.statusChipDone]}
-        onPress={isPayee ? onToggleConfirmed : undefined}
-        disabled={!isPayee}
-      >
-        <Text style={[styles.statusChipText, confirmedByPayee && styles.statusChipTextDone]}>
-          {confirmedByPayee ? 'Confirmed \u2713' : isPayee ? 'Confirm Received' : 'Not Confirmed'}
-        </Text>
-      </Pressable>
+    <View style={styles.payoutStatusWrap}>
+      <View style={styles.payoutStatusRow}>
+        <View style={styles.statusChipGroup}>
+          <Pressable
+            style={[styles.statusChip, sentByPayer && styles.statusChipDone]}
+            onPress={isPayer && !sentLocked ? onToggleSent : undefined}
+            disabled={!isPayer || sentLocked}
+          >
+            <Text style={[styles.statusChipText, sentByPayer && styles.statusChipTextDone]}>
+              {sentByPayer ? 'Sent \u2713' : isPayer ? 'Mark Sent' : 'Not Sent'}
+            </Text>
+          </Pressable>
+          {sentLocked && sentAt != null && (
+            <Pressable
+              style={styles.infoButton}
+              onPress={() => setSentInfoOpen((open) => !open)}
+              hitSlop={8}
+            >
+              <Text style={styles.infoButtonText}>i</Text>
+            </Pressable>
+          )}
+        </View>
+        <View style={styles.statusChipGroup}>
+          <Pressable
+            style={[styles.statusChip, confirmedByPayee && styles.statusChipDone]}
+            onPress={isPayee && !confirmedLocked ? onToggleConfirmed : undefined}
+            disabled={!isPayee || confirmedLocked}
+          >
+            <Text style={[styles.statusChipText, confirmedByPayee && styles.statusChipTextDone]}>
+              {confirmedByPayee ? 'Confirmed \u2713' : isPayee ? 'Confirm Received' : 'Not Confirmed'}
+            </Text>
+          </Pressable>
+          {confirmedLocked && confirmedAt != null && (
+            <Pressable
+              style={styles.infoButton}
+              onPress={() => setConfirmedInfoOpen((open) => !open)}
+              hitSlop={8}
+            >
+              <Text style={styles.infoButtonText}>i</Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
+      {sentInfoOpen && sentAt != null && (
+        <View style={styles.infoBubble}>
+          <Text style={styles.infoBubbleText}>Marked sent {formatDateTime(sentAt)}</Text>
+        </View>
+      )}
+      {confirmedInfoOpen && confirmedAt != null && (
+        <View style={styles.infoBubble}>
+          <Text style={styles.infoBubbleText}>Confirmed received {formatDateTime(confirmedAt)}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -267,7 +330,7 @@ function PayoutStatusRow({
 // settlement total - one row per line item from computeSettlement, split
 // into a Won column and a Lost column rather than a single signed number,
 // so it reads like a simple ledger.
-function PlayerBreakdownModal({
+export function PlayerBreakdownModal({
   visible,
   playerName,
   breakdown,
@@ -337,7 +400,7 @@ function PlayerBreakdownModal({
 // One settled bet (or Nassau/Match Play segment), every player's result for
 // it in one card - same shape whether it's shown on the Bets tab or the
 // Pots tab, just a different subset of cards feeding it.
-function BetCardView({ card }: { card: BetCard }) {
+export function BetCardView({ card }: { card: BetCard }) {
   return (
     <View style={styles.potBlock}>
       <View style={styles.potTitleRow}>
@@ -765,10 +828,44 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
+  payoutStatusWrap: {
+    marginTop: 8,
+  },
   payoutStatusRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8,
+  },
+  statusChipGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  infoButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#bbb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoButtonText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#667',
+    fontStyle: 'italic',
+  },
+  infoBubble: {
+    marginTop: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: '#eef1f5',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  infoBubbleText: {
+    fontSize: 11,
+    color: '#556',
   },
   statusChip: {
     borderWidth: 1,

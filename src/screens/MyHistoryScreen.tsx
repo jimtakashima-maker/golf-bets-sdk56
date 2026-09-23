@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useRoundState, HistoryEntry } from '../state/useRoundState';
 import BackButton from '../components/BackButton';
 
@@ -63,78 +63,15 @@ function StatBlock({ label, value, valueStyle }: { label: string; value: string;
   );
 }
 
-// One past round's per-bet breakdown, same shape as the Settlement screen's
-// own player breakdown modal - this is that same data, just read back from
-// where it was recorded rather than computed live.
-function HistoryDetailModal({ entry, onClose }: { entry: HistoryEntry | null; onClose: () => void }) {
-  return (
-    <Modal visible={entry !== null} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={detailStyles.backdrop} onPress={onClose} />
-      <View style={detailStyles.sheet}>
-        <Text style={detailStyles.title}>{entry?.courseName ?? 'Round'}</Text>
-        <Text style={detailStyles.subtitle}>
-          {entry ? formatDate(entry.date) : ''}
-          {entry && entry.opponentNames.length > 0 ? ` · vs ${entry.opponentNames.join(', ')}` : ''}
-        </Text>
-
-        {!entry || entry.breakdown.length === 0 ? (
-          <Text style={detailStyles.empty}>Nothing settled this round.</Text>
-        ) : (
-          <ScrollView style={detailStyles.rows}>
-            {entry.breakdown.map((item, index) => (
-              <View key={`${item.label}-${index}`} style={detailStyles.row}>
-                <View style={detailStyles.betCol}>
-                  <Text style={detailStyles.betText} numberOfLines={2}>
-                    {item.label}
-                  </Text>
-                  <Text style={detailStyles.categoryText}>{item.category}</Text>
-                </View>
-                <Text
-                  style={[
-                    detailStyles.amountText,
-                    item.amount > 0 ? detailStyles.wonText : item.amount < 0 ? detailStyles.lostText : detailStyles.evenText,
-                  ]}
-                >
-                  {formatSigned(item.amount)}
-                </Text>
-              </View>
-            ))}
-          </ScrollView>
-        )}
-
-        <View style={detailStyles.totalRow}>
-          <Text style={detailStyles.totalLabel}>Total</Text>
-          <Text
-            style={[
-              detailStyles.totalAmount,
-              (entry?.amount ?? 0) > 0
-                ? detailStyles.wonText
-                : (entry?.amount ?? 0) < 0
-                ? detailStyles.lostText
-                : detailStyles.evenText,
-            ]}
-          >
-            {formatSigned(entry?.amount ?? 0)}
-          </Text>
-        </View>
-
-        <Pressable style={detailStyles.closeButton} onPress={onClose}>
-          <Text style={detailStyles.closeButtonText}>Close</Text>
-        </Pressable>
-      </View>
-    </Modal>
-  );
-}
-
 interface MyHistoryScreenProps {
   onBack: () => void;
+  onViewRound: (roundCode: string) => void;
 }
 
-export default function MyHistoryScreen({ onBack }: MyHistoryScreenProps) {
+export default function MyHistoryScreen({ onBack, onViewRound }: MyHistoryScreenProps) {
   const history = useRoundState((state) => state.history);
   const loadHistory = useRoundState((state) => state.loadHistory);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<HistoryEntry | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -196,7 +133,7 @@ export default function MyHistoryScreen({ onBack }: MyHistoryScreenProps) {
           </View>
 
           {history.map((entry) => (
-            <Pressable key={entry.roundCode} style={styles.row} onPress={() => setSelected(entry)}>
+            <Pressable key={entry.roundCode} style={styles.row} onPress={() => onViewRound(entry.roundCode)}>
               <View style={styles.rowLeft}>
                 <Text style={styles.rowCourse} numberOfLines={1}>
                   {entry.courseName ?? 'Round'}
@@ -218,8 +155,6 @@ export default function MyHistoryScreen({ onBack }: MyHistoryScreenProps) {
           ))}
         </ScrollView>
       )}
-
-      <HistoryDetailModal entry={selected} onClose={() => setSelected(null)} />
     </View>
   );
 }
@@ -330,100 +265,3 @@ const styles = StyleSheet.create({
   },
 });
 
-const detailStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    maxHeight: '80%',
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 16,
-  },
-  title: {
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: '#889',
-    fontSize: 12,
-    marginTop: 2,
-    marginBottom: 12,
-  },
-  empty: {
-    color: '#889',
-    paddingVertical: 12,
-  },
-  rows: {
-    maxHeight: 320,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f3f3',
-  },
-  betCol: {
-    flex: 1,
-    paddingRight: 10,
-  },
-  betText: {
-    fontSize: 13,
-    color: '#234',
-  },
-  categoryText: {
-    fontSize: 11,
-    color: '#889',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: 1,
-  },
-  amountText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  wonText: {
-    color: '#1a7f37',
-  },
-  lostText: {
-    color: '#c0392b',
-  },
-  evenText: {
-    color: '#889',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-  },
-  totalLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#234',
-  },
-  totalAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  closeButton: {
-    alignSelf: 'center',
-    marginTop: 14,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  closeButtonText: {
-    color: '#1a7f37',
-    fontWeight: '600',
-  },
-});

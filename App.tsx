@@ -8,6 +8,7 @@ import StartMatchScreen from './src/screens/StartMatchScreen';
 import ScanScorecardScreen from './src/screens/ScanScorecardScreen';
 import RoundScreen from './src/screens/RoundScreen';
 import MyHistoryScreen from './src/screens/MyHistoryScreen';
+import RoundDetailScreen from './src/screens/RoundDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AdminScreen from './src/screens/AdminScreen';
 import { useRoundState, getSavedActiveRound, type SavedActiveRound } from './src/state/useRoundState';
@@ -22,6 +23,7 @@ type Screen =
   | 'scan'
   | 'round'
   | 'history'
+  | 'roundDetail'
   | 'profile'
   | 'admin';
 
@@ -51,6 +53,9 @@ export default function App() {
   // Profile can be opened from the welcome screen or from mid-round, so
   // remember where to send 'Back' back to instead of hardcoding welcome.
   const [profileReturnScreen, setProfileReturnScreen] = useState<Screen>('welcome');
+  // Which past round History's "View Round" screen is currently open to -
+  // set right before setScreen('roundDetail'), read by the render below.
+  const [viewingRoundCode, setViewingRoundCode] = useState<string | null>(null);
   const rejoinRound = useRoundState((state) => state.rejoinRound);
   const profile = useRoundState((state) => state.profile);
   const [savedRound, setSavedRound] = useState<SavedActiveRound | null>(null);
@@ -166,7 +171,27 @@ export default function App() {
   }
 
   if (screen === 'history') {
-    return <MyHistoryScreen onBack={() => setScreen('welcome')} />;
+    return (
+      <MyHistoryScreen
+        onBack={() => setScreen('welcome')}
+        onViewRound={(roundCode) => {
+          setViewingRoundCode(roundCode);
+          setScreen('roundDetail');
+        }}
+      />
+    );
+  }
+
+  if (screen === 'roundDetail' && viewingRoundCode) {
+    return (
+      <RoundDetailScreen
+        roundCode={viewingRoundCode}
+        onBack={() => {
+          setViewingRoundCode(null);
+          setScreen('history');
+        }}
+      />
+    );
   }
 
   if (screen === 'admin') {

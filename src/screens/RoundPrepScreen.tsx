@@ -690,6 +690,18 @@ function TeeGroupCard({
 
 function HandicapField({ value, onChange }: { value: number; onChange: (value: number) => void }) {
   const [draft, setDraft] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+
+  // Keeps this in sync with a handicap set from outside this input - most
+  // importantly the profile auto-fill effect in RoundPrepScreen, which
+  // writes to Firebase well after this field has already mounted (and
+  // therefore already locked in its own initial "0" draft) once the
+  // player's saved profile handicap round-trips back through the
+  // handicaps listener. Skipped while focused so it never clobbers active
+  // typing.
+  useEffect(() => {
+    if (!focused) setDraft(String(value));
+  }, [value, focused]);
 
   const commit = () => {
     const parsed = Number(draft);
@@ -709,8 +721,12 @@ function HandicapField({ value, onChange }: { value: number; onChange: (value: n
         style={styles.handicapInput}
         value={draft}
         onChangeText={setDraft}
+        onFocus={() => setFocused(true)}
         onEndEditing={commit}
-        onBlur={commit}
+        onBlur={() => {
+          setFocused(false);
+          commit();
+        }}
         keyboardType="number-pad"
       />
     </View>
