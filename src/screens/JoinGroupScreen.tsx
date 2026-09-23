@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
-import { useRoundState } from '../state/useRoundState';
+import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
+import { useRoundState, isUnclaimedPlayerId, Player } from '../state/useRoundState';
 import PreRoundBackground from '../components/PreRoundBackground';
 import AppLogo from '../components/AppLogo';
 import BackButton from '../components/BackButton';
@@ -16,11 +16,13 @@ export default function JoinGroupScreen({ roundCode, name, onJoined, onBack }: J
   const previewGroups = useRoundState((state) => state.previewGroups);
   const joinGroup = useRoundState((state) => state.joinGroup);
   const createGroupAndJoin = useRoundState((state) => state.createGroupAndJoin);
+  const claimPlayer = useRoundState((state) => state.claimPlayer);
   const status = useRoundState((state) => state.status);
   const errorMessage = useRoundState((state) => state.errorMessage);
 
   const [newGroupName, setNewGroupName] = useState('');
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
 
   const busy = status === 'connecting';
 
@@ -34,6 +36,31 @@ export default function JoinGroupScreen({ roundCode, name, onJoined, onBack }: J
     } finally {
       setJoiningId(null);
     }
+  };
+
+  // For someone who's already been added by name - a teammate entering
+  // their scores for them before they had the app open. Confirms first
+  // since this merges everything already recorded under that name (scores,
+  // handicap, bet participation) onto this device for good; there's no
+  // undo once the two entries are combined.
+  const handleClaim = (groupId: string, player: Player) => {
+    Alert.alert(`Is "${player.name}" you?`, "This'll bring in whatever's already been scored for them.", [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: "Yes, that's me",
+        onPress: async () => {
+          setClaimingId(player.id);
+          try {
+            await claimPlayer(roundCode, groupId, player.id);
+            onJoined();
+          } catch {
+            // errorMessage is already set in the store and rendered below.
+          } finally {
+            setClaimingId(null);
+          }
+        },
+      },
+    ]);
   };
 
   const handleCreateGroup = async () => {
@@ -61,26 +88,47 @@ export default function JoinGroupScreen({ roundCode, name, onJoined, onBack }: J
           <Text style={styles.hint}>No tee groups yet - be the first to start one below.</Text>
         )}
 
-        {previewGroups.map((group) => (
-          <Pressable
-            key={group.id}
-            style={styles.groupRow}
-            onPress={() => handleJoinExisting(group.id)}
-            disabled={busy}
-          >
-            <View>
-              <Text style={styles.groupName}>{group.name}</Text>
-              <Text style={styles.groupCount}>
-                {group.playerCount} player{group.playerCount === 1 ? '' : 's'}
-              </Text>
+        {previewGroups.map((group) => {
+          const unclaimed = group.players.filter((player) => isUnclaimedPlayerId(player.id));
+          return (
+            <View key={group.id} style={styles.groupCard}>
+              <Pressable style={styles.groupRow} onPress={() => handleJoinExisting(group.id)} disabled={busy}>
+                <View>
+                  <Text style={styles.groupName}>{group.name}</Text>
+                  <Text style={styles.groupCount}>
+                    {group.playerCount} player{group.playerCount === 1 ? '' : 's'}
+                  </Text>
+                </View>
+                {joiningId === group.id ? (
+                  <ActivityIndicator color="#1a7f37" />
+                ) : (
+                  <Text style={styles.groupJoin}>Join as new player</Text>
+                )}
+              </Pressable>
+
+              {unclaimed.length > 0 && (
+                <View style={styles.rosterBox}>
+                  <Text style={styles.rosterLabel}>Already listed in this group - is one of these you?</Text>
+                  {unclaimed.map((player) => (
+                    <Pressable
+                      key={player.id}
+                      style={styles.rosterRow}
+                      onPress={() => handleClaim(group.id, player)}
+                      disabled={busy}
+                    >
+                      <Text style={styles.rosterName}>{player.name}</Text>
+                      {claimingId === player.id ? (
+                        <ActivityIndicator color="#1a7f37" />
+                      ) : (
+                        <Text style={styles.rosterClaim}>That's me</Text>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
             </View>
-            {joiningId === group.id ? (
-              <ActivityIndicator color="#1a7f37" />
-            ) : (
-              <Text style={styles.groupJoin}>Join</Text>
-            )}
-          </Pressable>
-        ))}
+          );
+        })}
 
         {errorMessage && status === 'error' && <Text style={styles.error}>{errorMessage}</Text>}
 
@@ -134,16 +182,19 @@ const styles = StyleSheet.create({
     color: '#667',
     marginBottom: 12,
   },
+  groupCard: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
   groupRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    marginBottom: 10,
   },
   groupName: {
     fontSize: 16,
@@ -157,6 +208,34 @@ const styles = StyleSheet.create({
   groupJoin: {
     color: '#1a7f37',
     fontWeight: '700',
+  },
+  rosterBox: {
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    backgroundColor: '#f7f8fa',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  rosterLabel: {
+    fontSize: 12,
+    color: '#889',
+    marginBottom: 6,
+  },
+  rosterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  rosterName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#234',
+  },
+  rosterClaim: {
+    color: '#1a7f37',
+    fontWeight: '700',
+    fontSize: 13,
   },
   error: {
     color: '#c0392b',

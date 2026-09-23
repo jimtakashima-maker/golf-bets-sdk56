@@ -477,6 +477,17 @@ export type HandicapType = 'ghin' | 'league' | 'usga_like' | 'best_guess';
 // than reflecting any real rule about who can play.
 export const MAX_HANDICAP = 36;
 
+// Every player entry in a round is keyed one of exactly two ways: a real
+// device's own Firebase Auth uid (createRound/joinGroup/createGroupAndJoin/
+// claimPlayer, never starts with "-"), or a Firebase push() key from
+// addPlayer/addRegularPlayer for a name-only player with no device
+// (always starts with "-"). That's a reliable enough signal to offer "That's
+// me" only on the entries nobody's device has claimed yet, without adding
+// a separate flag to track it.
+export function isUnclaimedPlayerId(playerId: string): boolean {
+  return playerId.startsWith('-');
+}
+
 // A player's own saved display name and 18-hole handicap, so neither has
 // to be retyped on every "Start a Match"/"Join a Match" screen or round
 // setup. Private to that player's own auth uid. handicap18 is always the
@@ -587,6 +598,19 @@ export interface HistoricalRoundView {
   payoutStatus: Record<string, PayoutStatusEntry>;
 }
 
+// Anyone this player has completed a round with, remembered automatically
+// (see recordRegulars) so setting up a new round with the usual group
+// doesn't mean retyping names and re-guessing handicaps every time.
+// Player-scoped, not round-scoped - same load-on-demand pattern as
+// profile/history. Keyed by a normalized form of the name (see
+// regularKeyFor) so playing with "Steve" again updates the same entry
+// instead of piling up duplicates.
+export interface RegularPlayer {
+  name: string;
+  handicap18: number | null;
+  lastPlayedAt: number;
+}
+
 // A round is one outing that can contain several tee groups (whoever's
 // actually playing together on the course, whatever size that group is)
 // under the same round code. Score ENTRY is isolated per tee group -
@@ -609,11 +633,16 @@ export interface Group {
 }
 
 // Lightweight summary of a group, used to show a "pick your group" list
-// before actually joining one.
+// before actually joining one. Includes the group's current roster (not
+// just a count) so someone who was already added by name - by a teammate
+// entering scores for them before they had the app open - can spot
+// themselves and claim that existing entry instead of joining as a
+// second, disconnected player. See claimPlayer.
 export interface GroupPreview {
   id: string;
   name: string;
   playerCount: number;
+  players: Player[];
 }
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error';
@@ -761,13 +790,26 @@ interface RoundState {
   historicalRoundLoading: boolean;
   historicalRoundError: string | null;
 
+  // This player's own remembered regulars - see RegularPlayer. Loaded on
+  // demand, same pattern as history.
+  regulars: RegularPlayer[];
+
   // Actions
   createRound: (hostName: string) => Promise<void>;
   previewRound: (code: string) => Promise<void>;
   joinGroup: (code: string, groupId: string, name: string) => Promise<void>;
   createGroupAndJoin: (code: string, name: string, groupName?: string) => Promise<void>;
+  // Takes over an existing name-only player entry (added manually by a
+  // teammate before this player had the app open) as this device's own -
+  // see claimPlayer. Everything already recorded for that entry (scores,
+  // handicap, bet participation) carries over to this device's own uid.
+  claimPlayer: (roundCode: string, groupId: string, ghostPlayerId: string) => Promise<void>;
   rejoinRound: (code: string, groupId: string) => Promise<void>;
   addPlayer: (groupId: string, name: string) => Promise<void>;
+  // Quick-add version of addPlayer, for a saved regular - also seeds their
+  // last-known handicap in one atomic write instead of leaving it at 0
+  // until someone re-enters it.
+  addRegularPlayer: (groupId: string, regular: RegularPlayer) => Promise<void>;
   removePlayer: (groupId: string, playerId: string) => Promise<void>;
   createGroup: (name?: string) => Promise<string>;
   movePlayerToGroup: (playerId: string, fromGroupId: string, toGroupId: string) => Promise<void>;
@@ -865,6 +907,7 @@ interface RoundState {
   ) => Promise<string>;
   applyCourse: (courseId: string) => Promise<void>;
   loadHistory: () => Promise<void>;
+  loadRegulars: () => Promise<void>;
   leaveRound: () => void;
 
   // Internal: wires up the realtime listeners for a round. Exposed on the
@@ -2162,6 +2205,47 @@ async function recordHistoryEntry(
   }
 }
 
+// Firebase RTDB keys can't contain '.', '#', '$', '[', ']', or '/' - and
+// two different-looking names should still land on the same regular if
+// they're really the same person (case, stray spaces), so every write and
+// read of players/{uid}/regulars goes through this same normalization.
+function regularKeyFor(name: string): string {
+  const cleaned = name
+    .trim()
+    .toLowerCase()
+    .replace(/[.#$[\]/]/g, '_')
+    .replace(/\s+/g, '_');
+  return cleaned || 'player';
+}
+
+/**
+ * Remembers everyone else in a just-closed round as one of this player's
+ * own regulars - registered players and name-only ones alike, since a
+ * regular is about who you played with, not whether they had the app.
+ * Fires alongside recordHistoryEntry (same "once every bet is closed"
+ * trigger), best-effort for the same reason: a golf buddy list is a
+ * convenience, never load-bearing for the round itself.
+ */
+async function recordRegulars(uid: string, allPlayers: Player[], handicaps: PlayerHandicaps): Promise<void> {
+  const others = allPlayers.filter((player) => player.id !== uid);
+  if (others.length === 0) return;
+  const lastPlayedAt = Date.now();
+  const updates: Record<string, unknown> = {};
+  for (const player of others) {
+    const regular: RegularPlayer = {
+      name: player.name,
+      handicap18: handicaps[player.id] ?? null,
+      lastPlayedAt,
+    };
+    updates[`players/${uid}/regulars/${regularKeyFor(player.name)}`] = regular;
+  }
+  try {
+    await dbUpdate(ref(db), updates);
+  } catch {
+    // Best-effort, same as recordHistoryEntry above.
+  }
+}
+
 // ---------- Snapshot parsing ----------
 
 type PlayersSnapshotValue = Record<string, { name: string; joinedAt: number }> | null | undefined;
@@ -2406,6 +2490,19 @@ function historyFromSnapshotValue(value: Record<string, HistorySnapshotValue> | 
     .sort((a, b) => b.date - a.date);
 }
 
+type RegularSnapshotValue = { name?: string; handicap18?: number | null; lastPlayedAt?: number };
+
+function regularsFromSnapshotValue(value: Record<string, RegularSnapshotValue> | null): RegularPlayer[] {
+  if (!value) return [];
+  return Object.values(value)
+    .map((r) => ({
+      name: r.name ?? 'Player',
+      handicap18: r.handicap18 ?? null,
+      lastPlayedAt: r.lastPlayedAt ?? 0,
+    }))
+    .sort((a, b) => b.lastPlayedAt - a.lastPlayedAt);
+}
+
 // Active Firebase listeners for the current round, so leaveRound() can
 // detach them instead of leaking a subscription per round visited.
 let detachHolesListener: (() => void) | null = null;
@@ -2585,6 +2682,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
   profile: null,
   courses: [],
   history: [],
+  regulars: [],
   paymentHandles: null,
   paymentHandlesByUid: {},
   payoutStatus: {},
@@ -2651,6 +2749,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
             id,
             name: g.name ?? 'Group',
             playerCount: g.players ? Object.keys(g.players).length : 0,
+            players: playersFromSnapshotValue(g.players),
           }))
         : [];
 
@@ -2718,6 +2817,101 @@ export const useRoundState = create<RoundState>((set, get) => ({
     }
   },
 
+  // Rekeys a name-only player (added via addPlayer - a push key, never a
+  // real uid) onto this device's own uid, in one atomic multi-location
+  // update: every path anywhere in the round that referenced the old id
+  // (scores in every group, not just this one - a player can be moved
+  // between groups mid-round; handicaps; playerTeams/matchPlayPlayerTeams;
+  // every skins/stroke play/birdies/doubles bet they were opted into) is
+  // copied to the new uid and the old id removed. Nothing is left half
+  // migrated - Firebase evaluates every path in a multi-location update
+  // together, so this either fully succeeds or fully fails as one write.
+  // Afterward this device subscribes to the round exactly like a normal
+  // join, now carrying everything that ghost entry already had.
+  claimPlayer: async (roundCode, groupId, ghostPlayerId) => {
+    const code = roundCode.trim().toUpperCase();
+    set({ status: 'connecting', errorMessage: null });
+    try {
+      await ensureSignedIn();
+      const uid = auth.currentUser?.uid;
+      if (!uid) throw new Error('Sign-in failed - try again.');
+
+      const snapshot = await dbGet(ref(db, `rounds/${code}`));
+      if (!snapshot.exists()) throw new Error(`No round found with code ${code}`);
+      const value = snapshot.val() as {
+        groups?: Record<string, { players?: Record<string, { name: string; joinedAt: number }> } & GroupSnapshotValue>;
+        handicaps?: Record<string, number>;
+        playerTeams?: Record<string, string>;
+        matchPlayPlayerTeams?: Record<string, string>;
+        skinsBets?: Record<string, { players?: Record<string, true> }>;
+        strokePlayBets?: Record<string, { players?: Record<string, true> }>;
+        birdiesBets?: Record<string, { players?: Record<string, true> }>;
+        doublesBets?: Record<string, { players?: Record<string, true> }>;
+      };
+
+      const ghost = value.groups?.[groupId]?.players?.[ghostPlayerId];
+      if (!ghost) throw new Error('That player could not be found - they may have already been claimed.');
+
+      const updates: Record<string, unknown> = {};
+      const base = `rounds/${code}`;
+
+      updates[`${base}/groups/${groupId}/players/${ghostPlayerId}`] = null;
+      updates[`${base}/groups/${groupId}/players/${uid}`] = { name: ghost.name, joinedAt: ghost.joinedAt };
+
+      // Scores can exist in any group the ghost entry was ever moved
+      // through (movePlayerToGroup keeps the same id but doesn't drag
+      // scores along), so every group is checked, not just this one.
+      for (const [gid, group] of Object.entries(value.groups ?? {})) {
+        const scores = (group as GroupSnapshotValue).scores;
+        if (!scores) continue;
+        for (const [hole, holeScores] of Object.entries(scores)) {
+          const strokes = (holeScores as Record<string, number> | undefined)?.[ghostPlayerId];
+          if (strokes == null) continue;
+          updates[`${base}/groups/${gid}/scores/${hole}/${ghostPlayerId}`] = null;
+          updates[`${base}/groups/${gid}/scores/${hole}/${uid}`] = strokes;
+        }
+      }
+
+      if (value.handicaps?.[ghostPlayerId] != null) {
+        updates[`${base}/handicaps/${ghostPlayerId}`] = null;
+        updates[`${base}/handicaps/${uid}`] = value.handicaps[ghostPlayerId];
+      }
+      if (value.playerTeams?.[ghostPlayerId] != null) {
+        updates[`${base}/playerTeams/${ghostPlayerId}`] = null;
+        updates[`${base}/playerTeams/${uid}`] = value.playerTeams[ghostPlayerId];
+      }
+      if (value.matchPlayPlayerTeams?.[ghostPlayerId] != null) {
+        updates[`${base}/matchPlayPlayerTeams/${ghostPlayerId}`] = null;
+        updates[`${base}/matchPlayPlayerTeams/${uid}`] = value.matchPlayPlayerTeams[ghostPlayerId];
+      }
+
+      const betGroups: Array<[string, Record<string, { players?: Record<string, true> }> | undefined]> = [
+        ['skinsBets', value.skinsBets],
+        ['strokePlayBets', value.strokePlayBets],
+        ['birdiesBets', value.birdiesBets],
+        ['doublesBets', value.doublesBets],
+      ];
+      for (const [betPath, bets] of betGroups) {
+        for (const [betId, bet] of Object.entries(bets ?? {})) {
+          if (bet.players?.[ghostPlayerId]) {
+            updates[`${base}/${betPath}/${betId}/players/${ghostPlayerId}`] = null;
+            updates[`${base}/${betPath}/${betId}/players/${uid}`] = true;
+          }
+        }
+      }
+
+      await dbUpdate(ref(db), updates);
+
+      get()._subscribeToRound(code, groupId, uid);
+    } catch (error) {
+      set((state) => ({
+        status: 'error',
+        errorMessage: state.errorMessage ?? (error as Error).message,
+      }));
+      throw error;
+    }
+  },
+
   rejoinRound: async (code, groupId) => {
     set({ status: 'connecting', errorMessage: null });
     try {
@@ -2748,6 +2942,25 @@ export const useRoundState = create<RoundState>((set, get) => ({
     if (!roundCode) return;
     const playerRef = push(ref(db, `rounds/${roundCode}/groups/${groupId}/players`));
     await dbSet(playerRef, { name, joinedAt: Date.now() });
+  },
+
+  // Same as addPlayer, but for a saved regular - the generated player id
+  // is known up front (push() returns its key before writing), so their
+  // last-known handicap can be seeded in the same atomic update instead
+  // of a separate write that could land before setPlayerHandicap's own
+  // "already set" guard sees it.
+  addRegularPlayer: async (groupId, regular) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    const playerRef = push(ref(db, `rounds/${roundCode}/groups/${groupId}/players`));
+    const playerId = playerRef.key as string;
+    const updates: Record<string, unknown> = {
+      [`rounds/${roundCode}/groups/${groupId}/players/${playerId}`]: { name: regular.name, joinedAt: Date.now() },
+    };
+    if (regular.handicap18 != null) {
+      updates[`rounds/${roundCode}/handicaps/${playerId}`] = regular.handicap18;
+    }
+    await dbUpdate(ref(db), updates);
   },
 
   removePlayer: async (groupId, playerId) => {
@@ -3872,6 +4085,17 @@ export const useRoundState = create<RoundState>((set, get) => ({
     set({ history: historyFromSnapshotValue(snapshot.val()) });
   },
 
+  loadRegulars: async () => {
+    await ensureSignedIn();
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      set({ regulars: [] });
+      return;
+    }
+    const snapshot = await dbGet(ref(db, `players/${uid}/regulars`));
+    set({ regulars: regularsFromSnapshotValue(snapshot.val()) });
+  },
+
   _subscribeToRound: (code, groupId, uid) => {
     detachListeners();
     void persistActiveRound(code, groupId);
@@ -4003,6 +4227,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
       // data actually changes, not on a timer.
       if (allBetsClosed(nassau, matchPlay, skins, strokePlay, birdies, doubles, totalHoles, nassauPressResults)) {
         void recordHistoryEntry(code, uid, createdAt, courseName, totalHoles, allPlayers, settlement, betCards);
+        void recordRegulars(uid, allPlayers, handicaps);
       }
     };
 

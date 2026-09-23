@@ -25,6 +25,7 @@ import {
   DoublesBet,
   PressStackingMode,
   MAX_HANDICAP,
+  RegularPlayer,
   StakesUnit,
   stakesSymbol,
   formatStakeAmount,
@@ -123,10 +124,14 @@ export default function RoundPrepScreen() {
   const startRound = useRoundState((state) => state.startRound);
   const profile = useRoundState((state) => state.profile);
   const loadProfile = useRoundState((state) => state.loadProfile);
+  const regulars = useRoundState((state) => state.regulars);
+  const loadRegulars = useRoundState((state) => state.loadRegulars);
+  const addRegularPlayer = useRoundState((state) => state.addRegularPlayer);
 
   useEffect(() => {
     void loadProfile();
-  }, [loadProfile]);
+    void loadRegulars();
+  }, [loadProfile, loadRegulars]);
 
   // The first time you're in a round with nothing set for you yet, pull
   // your own per-round handicap straight from your saved profile instead
@@ -150,6 +155,12 @@ export default function RoundPrepScreen() {
   const [generating, setGenerating] = useState(false);
 
   const allPlayers = groups.flatMap((group) => group.players);
+
+  // Anyone already in this round (any tee group, added by name or with
+  // their own device) shouldn't also show up as a "quick add" - they're
+  // already here.
+  const namesInRound = new Set(allPlayers.map((player) => player.name.trim().toLowerCase()));
+  const availableRegulars = regulars.filter((regular) => !namesInRound.has(regular.name.trim().toLowerCase()));
 
   const handleAddGroup = async () => {
     setAddingGroup(true);
@@ -377,6 +388,8 @@ export default function RoundPrepScreen() {
           onSetHandicap={setPlayerHandicap}
           onRename={(name) => renameGroup(group.id, name)}
           onAddPlayer={(name) => addPlayer(group.id, name)}
+          availableRegulars={availableRegulars}
+          onAddRegular={(regular) => addRegularPlayer(group.id, regular)}
           onRemovePlayer={(removedPlayerId) => removePlayer(group.id, removedPlayerId)}
           onMoveTo={(movedPlayerId) => setMoveModalPlayerId(movedPlayerId)}
           onAddTo={(targetPlayerId) => setAddModalPlayerId(targetPlayerId)}
@@ -582,6 +595,8 @@ interface TeeGroupCardProps {
   onSetHandicap: (playerId: string, handicap: number) => void;
   onRename: (name: string) => void;
   onAddPlayer: (name: string) => void;
+  availableRegulars: RegularPlayer[];
+  onAddRegular: (regular: RegularPlayer) => void;
   onRemovePlayer: (playerId: string) => void;
   onMoveTo: (playerId: string) => void;
   onAddTo: (playerId: string) => void;
@@ -599,6 +614,8 @@ function TeeGroupCard({
   onSetHandicap,
   onRename,
   onAddPlayer,
+  availableRegulars,
+  onAddRegular,
   onRemovePlayer,
   onMoveTo,
   onAddTo,
@@ -666,6 +683,23 @@ function TeeGroupCard({
           </View>
         );
       })}
+
+      {availableRegulars.length > 0 && (
+        <View style={styles.regularsBox}>
+          <Text style={styles.regularsLabel}>Add a regular</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.regularsRow}>
+            {availableRegulars.map((regular) => (
+              <Pressable
+                key={regular.name}
+                style={styles.regularChip}
+                onPress={() => onAddRegular(regular)}
+              >
+                <Text style={styles.regularChipText}>+ {regular.name}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       <View style={styles.addPlayerRow}>
         <TextInput
@@ -2390,6 +2424,32 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: '#1a7f37',
     fontSize: 12,
+    fontWeight: '600',
+  },
+  regularsBox: {
+    marginTop: 10,
+  },
+  regularsLabel: {
+    fontSize: 11,
+    color: '#889',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  regularsRow: {
+    gap: 6,
+    paddingRight: 4,
+  },
+  regularChip: {
+    borderWidth: 1,
+    borderColor: '#1a7f37',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  regularChipText: {
+    color: '#1a7f37',
+    fontSize: 13,
     fontWeight: '600',
   },
   addPlayerRow: {

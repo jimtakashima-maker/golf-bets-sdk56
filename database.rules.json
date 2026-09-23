@@ -146,6 +146,11 @@
           "$roundCode": {
             ".write": "auth != null && auth.uid == $uid"
           }
+        },
+        "regulars": {
+          "$regularKey": {
+            ".write": "auth != null && auth.uid == $uid"
+          }
         }
       }
     },
