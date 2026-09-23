@@ -594,9 +594,9 @@ interface TeeGroupCardProps {
   handicaps: PlayerHandicaps;
   onSetHandicap: (playerId: string, handicap: number) => void;
   onRename: (name: string) => void;
-  onAddPlayer: (name: string) => void;
+  onAddPlayer: (name: string) => Promise<string>;
   availableRegulars: RegularPlayer[];
-  onAddRegular: (regular: RegularPlayer) => void;
+  onAddRegular: (regular: RegularPlayer) => Promise<string>;
   onRemovePlayer: (playerId: string) => void;
   onMoveTo: (playerId: string) => void;
   onAddTo: (playerId: string) => void;
@@ -632,11 +632,17 @@ function TeeGroupCard({
     }
   };
 
-  const handleAddPlayer = () => {
+  const handleAddPlayer = async () => {
     const trimmed = newPlayerName.trim();
     if (!trimmed) return;
-    onAddPlayer(trimmed);
     setNewPlayerName('');
+    const resolvedName = await onAddPlayer(trimmed);
+    if (resolvedName !== trimmed) {
+      Alert.alert(
+        "You're not the only one",
+        `There's already a "${trimmed}" in this round, so they've been added as "${resolvedName}" instead.`
+      );
+    }
   };
 
   return (
@@ -692,7 +698,16 @@ function TeeGroupCard({
               <Pressable
                 key={regular.name}
                 style={styles.regularChip}
-                onPress={() => onAddRegular(regular)}
+                onPress={() => {
+                  onAddRegular(regular).then((resolvedName) => {
+                    if (resolvedName !== regular.name) {
+                      Alert.alert(
+                        "You're not the only one",
+                        `There's already a "${regular.name}" in this round, so they've been added as "${resolvedName}" instead.`
+                      );
+                    }
+                  });
+                }}
               >
                 <Text style={styles.regularChipText}>+ {regular.name}</Text>
               </Pressable>

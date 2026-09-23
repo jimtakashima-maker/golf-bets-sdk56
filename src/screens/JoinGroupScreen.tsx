@@ -5,6 +5,21 @@ import PreRoundBackground from '../components/PreRoundBackground';
 import AppLogo from '../components/AppLogo';
 import BackButton from '../components/BackButton';
 
+// joinGroup/createGroupAndJoin can come back with a different name than
+// what was typed, if someone else already in the round has it - see
+// dedupePlayerName in useRoundState. Surface that once, then continue.
+function announceRenameIfNeeded(requested: string, resolved: string, onDone: () => void) {
+  if (resolved === requested) {
+    onDone();
+    return;
+  }
+  Alert.alert(
+    "You're not the only one",
+    `There's already a "${requested}" in this round, so you're "${resolved}" for this one.`,
+    [{ text: 'Got it', onPress: onDone }]
+  );
+}
+
 interface JoinGroupScreenProps {
   roundCode: string;
   name: string;
@@ -29,8 +44,8 @@ export default function JoinGroupScreen({ roundCode, name, onJoined, onBack }: J
   const handleJoinExisting = async (groupId: string) => {
     setJoiningId(groupId);
     try {
-      await joinGroup(roundCode, groupId, name);
-      onJoined();
+      const resolvedName = await joinGroup(roundCode, groupId, name);
+      announceRenameIfNeeded(name, resolvedName, onJoined);
     } catch {
       // errorMessage is already set in the store and rendered below.
     } finally {
@@ -65,8 +80,8 @@ export default function JoinGroupScreen({ roundCode, name, onJoined, onBack }: J
 
   const handleCreateGroup = async () => {
     try {
-      await createGroupAndJoin(roundCode, name, newGroupName.trim() || undefined);
-      onJoined();
+      const resolvedName = await createGroupAndJoin(roundCode, name, newGroupName.trim() || undefined);
+      announceRenameIfNeeded(name, resolvedName, onJoined);
     } catch {
       // errorMessage is already set in the store and rendered below.
     }

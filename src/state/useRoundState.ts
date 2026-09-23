@@ -488,6 +488,59 @@ export function isUnclaimedPlayerId(playerId: string): boolean {
   return playerId.startsWith('-');
 }
 
+// Short, easy-to-say words used to tell apart two players who typed the
+// same name into the same round (two "Jim"s is the whole reason this
+// exists) - picked for being quick to read out loud mid-round ("wait,
+// which Jim - Fox or Otter?") rather than for being a real roster of
+// anything.
+const NAME_DISAMBIGUATION_WORDS = [
+  'Fox', 'Bear', 'Wolf', 'Hawk', 'Otter', 'Owl', 'Elk', 'Lynx', 'Heron',
+  'Falcon', 'Badger', 'Moose', 'Raven', 'Puma', 'Eagle', 'Bison', 'Marlin',
+  'Gator', 'Cobra', 'Stag',
+];
+
+// Given every player name already in the round and the name someone's
+// about to be added under, returns a name that's guaranteed not to
+// collide: the name as-is if nothing else in the round has it, otherwise
+// "<name>-<Word>" with a word picked at random from
+// NAME_DISAMBIGUATION_WORDS (skipping any word already used for this
+// same base name in the round, so two "Jim"s never both end up
+// "Jim-Fox"). Comparison is case-insensitive so "Jim" and "jim" still
+// collide.
+function dedupePlayerName(existingNames: string[], requestedName: string): string {
+  const trimmed = requestedName.trim();
+  const lower = trimmed.toLowerCase();
+  const isTaken = existingNames.some((name) => name.trim().toLowerCase() === lower);
+  if (!isTaken) return trimmed;
+
+  const suffixPattern = new RegExp(`^${trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-([A-Za-z]+)$`, 'i');
+  const usedWords = new Set(
+    existingNames
+      .map((name) => name.match(suffixPattern)?.[1]?.toLowerCase())
+      .filter((word): word is string => word != null)
+  );
+  const available = NAME_DISAMBIGUATION_WORDS.filter((word) => !usedWords.has(word.toLowerCase()));
+  const pool = available.length > 0 ? available : NAME_DISAMBIGUATION_WORDS;
+  const word = pool[Math.floor(Math.random() * pool.length)];
+  return `${trimmed}-${word}`;
+}
+
+// Flattens every player name already in the round, across every tee
+// group, from a live rounds/$code/groups snapshot value (used right
+// before a write that's about to introduce a new name, so it always
+// sees the latest data rather than whatever's cached locally).
+function allPlayerNamesInGroupsSnapshot(
+  groupsValue: Record<string, { players?: Record<string, { name: string }> }> | null | undefined
+): string[] {
+  const names: string[] = [];
+  for (const group of Object.values(groupsValue ?? {})) {
+    for (const player of Object.values(group.players ?? {})) {
+      if (player?.name) names.push(player.name);
+    }
+  }
+  return names;
+}
+
 // A player's own saved display name and 18-hole handicap, so neither has
 // to be retyped on every "Start a Match"/"Join a Match" screen or round
 // setup. Private to that player's own auth uid. handicap18 is always the
@@ -797,19 +850,19 @@ interface RoundState {
   // Actions
   createRound: (hostName: string) => Promise<void>;
   previewRound: (code: string) => Promise<void>;
-  joinGroup: (code: string, groupId: string, name: string) => Promise<void>;
-  createGroupAndJoin: (code: string, name: string, groupName?: string) => Promise<void>;
+  joinGroup: (code: string, groupId: string, name: string) => Promise<string>;
+  createGroupAndJoin: (code: string, name: string, groupName?: string) => Promise<string>;
   // Takes over an existing name-only player entry (added manually by a
   // teammate before this player had the app open) as this device's own -
   // see claimPlayer. Everything already recorded for that entry (scores,
   // handicap, bet participation) carries over to this device's own uid.
   claimPlayer: (roundCode: string, groupId: string, ghostPlayerId: string) => Promise<void>;
   rejoinRound: (code: string, groupId: string) => Promise<void>;
-  addPlayer: (groupId: string, name: string) => Promise<void>;
+  addPlayer: (groupId: string, name: string) => Promise<string>;
   // Quick-add version of addPlayer, for a saved regular - also seeds their
   // last-known handicap in one atomic write instead of leaving it at 0
   // until someone re-enters it.
-  addRegularPlayer: (groupId: string, regular: RegularPlayer) => Promise<void>;
+  addRegularPlayer: (groupId: string, regular: RegularPlayer) => Promise<string>;
   removePlayer: (groupId: string, playerId: string) => Promise<void>;
   createGroup: (name?: string) => Promise<string>;
   movePlayerToGroup: (playerId: string, fromGroupId: string, toGroupId: string) => Promise<void>;
@@ -2771,12 +2824,16 @@ export const useRoundState = create<RoundState>((set, get) => ({
       const uid = auth.currentUser?.uid;
       if (!uid) throw new Error('Sign-in failed - try again.');
 
+      const groupsSnapshot = await dbGet(ref(db, `rounds/${code}/groups`));
+      const resolvedName = dedupePlayerName(allPlayerNamesInGroupsSnapshot(groupsSnapshot.val()), name);
+
       await dbSet(ref(db, `rounds/${code}/groups/${groupId}/players/${uid}`), {
-        name,
+        name: resolvedName,
         joinedAt: Date.now(),
       });
 
       get()._subscribeToRound(code, groupId, uid);
+      return resolvedName;
     } catch (error) {
       set((state) => ({
         status: 'error',
@@ -2796,6 +2853,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
 
       const existingSnapshot = await dbGet(ref(db, `rounds/${code}/groups`));
       const existingCount = existingSnapshot.exists() ? Object.keys(existingSnapshot.val()).length : 0;
+      const resolvedName = dedupePlayerName(allPlayerNamesInGroupsSnapshot(existingSnapshot.val()), name);
 
       const groupRef = push(ref(db, `rounds/${code}/groups`));
       const groupId = groupRef.key as string;
@@ -2804,10 +2862,11 @@ export const useRoundState = create<RoundState>((set, get) => ({
       await dbSet(groupRef, {
         name: groupName?.trim() || `Tee Group ${existingCount + 1}`,
         createdAt: joinedAt,
-        players: { [uid]: { name, joinedAt } },
+        players: { [uid]: { name: resolvedName, joinedAt } },
       });
 
       get()._subscribeToRound(code, groupId, uid);
+      return resolvedName;
     } catch (error) {
       set((state) => ({
         status: 'error',
@@ -2954,10 +3013,13 @@ export const useRoundState = create<RoundState>((set, get) => ({
   },
 
   addPlayer: async (groupId, name) => {
-    const { roundCode } = get();
-    if (!roundCode) return;
+    const { roundCode, groups } = get();
+    if (!roundCode) return name;
+    const existingNames = groups.flatMap((group) => group.players.map((player) => player.name));
+    const resolvedName = dedupePlayerName(existingNames, name);
     const playerRef = push(ref(db, `rounds/${roundCode}/groups/${groupId}/players`));
-    await dbSet(playerRef, { name, joinedAt: Date.now() });
+    await dbSet(playerRef, { name: resolvedName, joinedAt: Date.now() });
+    return resolvedName;
   },
 
   // Same as addPlayer, but for a saved regular - the generated player id
@@ -2966,17 +3028,20 @@ export const useRoundState = create<RoundState>((set, get) => ({
   // of a separate write that could land before setPlayerHandicap's own
   // "already set" guard sees it.
   addRegularPlayer: async (groupId, regular) => {
-    const { roundCode } = get();
-    if (!roundCode) return;
+    const { roundCode, groups } = get();
+    if (!roundCode) return regular.name;
+    const existingNames = groups.flatMap((group) => group.players.map((player) => player.name));
+    const resolvedName = dedupePlayerName(existingNames, regular.name);
     const playerRef = push(ref(db, `rounds/${roundCode}/groups/${groupId}/players`));
     const playerId = playerRef.key as string;
     const updates: Record<string, unknown> = {
-      [`rounds/${roundCode}/groups/${groupId}/players/${playerId}`]: { name: regular.name, joinedAt: Date.now() },
+      [`rounds/${roundCode}/groups/${groupId}/players/${playerId}`]: { name: resolvedName, joinedAt: Date.now() },
     };
     if (regular.handicap18 != null) {
       updates[`rounds/${roundCode}/handicaps/${playerId}`] = regular.handicap18;
     }
     await dbUpdate(ref(db), updates);
+    return resolvedName;
   },
 
   removePlayer: async (groupId, playerId) => {
