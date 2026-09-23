@@ -52,7 +52,7 @@ const TERMS_SECTIONS: Array<{ heading: string; body: string }> = [
 const PRIVACY_SECTIONS: Array<{ heading: string; body: string }> = [
   {
     heading: '1. Information We Collect',
-    body: '• Account information (email, username)\n• Gameplay data (scores, bets, presses, skins, settlements)\n• Device information\n• Optional analytics data',
+    body: '• Profile information you provide (display name, handicap)\n• Optional payment handles you add for settling bets with other players (Venmo, PayPal, Cash App, or a phone number/email for Zelle)\n• Gameplay data (scores, bets, presses, skins, settlements)\n• Device information\n• Optional analytics data',
   },
   {
     heading: '2. How We Use Information',
