@@ -761,7 +761,7 @@ function HandicapField({ value, onChange }: { value: number; onChange: (value: n
           setFocused(false);
           commit();
         }}
-        keyboardType="number-pad"
+        keyboardType="decimal-pad"
       />
     </View>
   );
