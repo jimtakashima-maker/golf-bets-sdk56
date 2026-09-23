@@ -1373,6 +1373,31 @@ function BetSettings({
     if (doublesBets.length > 0) setDoublesOpen(true);
   }, [doublesBets.length]);
 
+  // Which bet's full roster picker is open, if any - lets a Skins/Stroke
+  // Play/Birdies/Doubles bet (a flat player pool, unlike Nassau/Match
+  // Play's paired teams) get its whole player list set from one modal
+  // instead of visiting every player's own "Add to" picker one at a time.
+  const [rosterModal, setRosterModal] = useState<
+    { betType: 'skins' | 'strokePlay' | 'birdies' | 'doubles'; betId: string } | null
+  >(null);
+  const activeRosterBet: { name: string; playerIds: string[] } | null =
+    rosterModal == null
+      ? null
+      : rosterModal.betType === 'skins'
+      ? skinsBets.find((bet) => bet.id === rosterModal.betId) ?? null
+      : rosterModal.betType === 'strokePlay'
+      ? strokePlayBets.find((bet) => bet.id === rosterModal.betId) ?? null
+      : rosterModal.betType === 'birdies'
+      ? birdiesBets.find((bet) => bet.id === rosterModal.betId) ?? null
+      : doublesBets.find((bet) => bet.id === rosterModal.betId) ?? null;
+  const setRosterPlayer = (playerId: string, inBet: boolean) => {
+    if (rosterModal == null) return;
+    if (rosterModal.betType === 'skins') onSetPlayerInSkinsBet(rosterModal.betId, playerId, inBet);
+    else if (rosterModal.betType === 'strokePlay') onSetPlayerInStrokePlayBet(rosterModal.betId, playerId, inBet);
+    else if (rosterModal.betType === 'birdies') onSetPlayerInBirdiesBet(rosterModal.betId, playerId, inBet);
+    else onSetPlayerInDoublesBet(rosterModal.betId, playerId, inBet);
+  };
+
   return (
     <View style={styles.settingsContainer}>
       <SectionHeader
@@ -1482,6 +1507,7 @@ function BetSettings({
               onSetPayoutMode={(mode) => onSetSkinsBetPayoutMode(bet.id, mode)}
               onSetBuyIn={(value) => onSetSkinsBetBuyIn(bet.id, value)}
               onDelete={() => onDeleteSkinsBet(bet.id)}
+              onManagePlayers={() => setRosterModal({ betType: 'skins', betId: bet.id })}
               allPlayers={allPlayers}
               amIIn={playerId != null && bet.playerIds.includes(playerId)}
               onToggleMe={
@@ -1515,6 +1541,7 @@ function BetSettings({
               onSetValuePerStroke={(value) => onSetStrokePlayBetValuePerStroke(bet.id, value)}
               onSetBuyIn={(value) => onSetStrokePlayBetBuyIn(bet.id, value)}
               onDelete={() => onDeleteStrokePlayBet(bet.id)}
+              onManagePlayers={() => setRosterModal({ betType: 'strokePlay', betId: bet.id })}
               allPlayers={allPlayers}
               amIIn={playerId != null && bet.playerIds.includes(playerId)}
               onToggleMe={
@@ -1546,6 +1573,7 @@ function BetSettings({
               onSetNet={(net) => onSetBirdiesBetNet(bet.id, net)}
               onSetAmount={(value) => onSetBirdiesBetAmount(bet.id, value)}
               onDelete={() => onDeleteBirdiesBet(bet.id)}
+              onManagePlayers={() => setRosterModal({ betType: 'birdies', betId: bet.id })}
               allPlayers={allPlayers}
               amIIn={playerId != null && bet.playerIds.includes(playerId)}
               onToggleMe={
@@ -1575,6 +1603,7 @@ function BetSettings({
               onSetNet={(net) => onSetDoublesBetNet(bet.id, net)}
               onSetAmount={(value) => onSetDoublesBetAmount(bet.id, value)}
               onDelete={() => onDeleteDoublesBet(bet.id)}
+              onManagePlayers={() => setRosterModal({ betType: 'doubles', betId: bet.id })}
               allPlayers={allPlayers}
               amIIn={playerId != null && bet.playerIds.includes(playerId)}
               onToggleMe={
@@ -1587,7 +1616,80 @@ function BetSettings({
           </Pressable>
         </>
       )}
+
+      <BetRosterModal
+        visible={rosterModal != null}
+        betName={activeRosterBet?.name ?? ''}
+        allPlayers={allPlayers}
+        selectedIds={activeRosterBet?.playerIds ?? []}
+        onToggle={setRosterPlayer}
+        onSelectAll={() => allPlayers.forEach((player) => setRosterPlayer(player.id, true))}
+        onClear={() => (activeRosterBet?.playerIds ?? []).forEach((id) => setRosterPlayer(id, false))}
+        onClose={() => setRosterModal(null)}
+      />
     </View>
+  );
+}
+
+// A single "who's in this bet" picker for a flat-roster bet (Skins,
+// Stroke Play, Birdies, Doubles) - sets the whole player list for one
+// bet from one screen, instead of opening every player's own "Add to"
+// modal to toggle them in one at a time. Nassau/Match Play stay on the
+// per-player flow since those are paired teams, not an open roster.
+function BetRosterModal({
+  visible,
+  betName,
+  allPlayers,
+  selectedIds,
+  onToggle,
+  onSelectAll,
+  onClear,
+  onClose,
+}: {
+  visible: boolean;
+  betName: string;
+  allPlayers: Player[];
+  selectedIds: string[];
+  onToggle: (playerId: string, selected: boolean) => void;
+  onSelectAll: () => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const allSelected = allPlayers.length > 0 && allPlayers.every((player) => selectedIds.includes(player.id));
+
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose} />
+      <ScrollView style={styles.modalSheet} contentContainerStyle={styles.modalSheetContent}>
+        <Text style={styles.modalTitle}>Who's in {betName}?</Text>
+        {allPlayers.length > 0 && (
+          <Pressable style={styles.modalAddRow} onPress={allSelected ? onClear : onSelectAll}>
+            <Text style={styles.modalAddRowText}>{allSelected ? 'Clear all' : 'Select all'}</Text>
+          </Pressable>
+        )}
+        {allPlayers.length === 0 && (
+          <Text style={styles.modalEmptyHint}>No players in this round yet</Text>
+        )}
+        {allPlayers.map((player) => {
+          const selected = selectedIds.includes(player.id);
+          return (
+            <Pressable
+              key={player.id}
+              style={[styles.modalRow, selected && styles.modalRowSelected]}
+              onPress={() => onToggle(player.id, !selected)}
+            >
+              <Text style={[styles.modalRowText, selected && styles.modalRowTextSelected]}>
+                {selected ? '✓ ' : ''}
+                {player.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+        <Pressable style={styles.modalCloseButton} onPress={onClose}>
+          <Text style={styles.modalCloseButtonText}>Done</Text>
+        </Pressable>
+      </ScrollView>
+    </Modal>
   );
 }
 
@@ -1686,6 +1788,7 @@ function SkinsBetSettingsRow({
   allPlayers,
   amIIn,
   onToggleMe,
+  onManagePlayers,
 }: {
   bet: SkinsBet;
   onRename: (name: string) => void;
@@ -1698,6 +1801,7 @@ function SkinsBetSettingsRow({
   allPlayers: Player[];
   amIIn?: boolean;
   onToggleMe?: () => void;
+  onManagePlayers: () => void;
 }) {
   const unit = bet.unit;
   const setSkinsBetUnit = useRoundState((state) => state.setSkinsBetUnit);
@@ -1841,11 +1945,16 @@ function SkinsBetSettingsRow({
 
       <View style={styles.settingsMembersRow}>
         <Text style={styles.settingsRowSubtext}>{describeBetMembers(bet.playerIds, allPlayers)}</Text>
-        {onToggleMe && (
-          <Pressable style={styles.addMeChip} onPress={onToggleMe}>
-            <Text style={styles.addMeChipText}>{amIIn ? 'Remove me' : 'Add me'}</Text>
+        <View style={styles.settingsMembersActions}>
+          <Pressable style={styles.managePlayersChip} onPress={onManagePlayers}>
+            <Text style={styles.managePlayersChipText}>Players</Text>
           </Pressable>
-        )}
+          {onToggleMe && (
+            <Pressable style={styles.addMeChip} onPress={onToggleMe}>
+              <Text style={styles.addMeChipText}>{amIIn ? 'Remove me' : 'Add me'}</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {isPot && potPreview > 0 && (
@@ -1868,6 +1977,7 @@ function StrokePlaySettingsRow({
   allPlayers,
   amIIn,
   onToggleMe,
+  onManagePlayers,
 }: {
   bet: StrokePlayBet;
   onRename: (name: string) => void;
@@ -1879,6 +1989,7 @@ function StrokePlaySettingsRow({
   allPlayers: Player[];
   amIIn?: boolean;
   onToggleMe?: () => void;
+  onManagePlayers: () => void;
 }) {
   const unit = bet.unit;
   const setStrokePlayBetUnit = useRoundState((state) => state.setStrokePlayBetUnit);
@@ -2033,11 +2144,16 @@ function StrokePlaySettingsRow({
 
       <View style={styles.settingsMembersRow}>
         <Text style={styles.settingsRowSubtext}>{describeBetMembers(bet.playerIds, allPlayers)}</Text>
-        {onToggleMe && (
-          <Pressable style={styles.addMeChip} onPress={onToggleMe}>
-            <Text style={styles.addMeChipText}>{amIIn ? 'Remove me' : 'Add me'}</Text>
+        <View style={styles.settingsMembersActions}>
+          <Pressable style={styles.managePlayersChip} onPress={onManagePlayers}>
+            <Text style={styles.managePlayersChipText}>Players</Text>
           </Pressable>
-        )}
+          {onToggleMe && (
+            <Pressable style={styles.addMeChip} onPress={onToggleMe}>
+              <Text style={styles.addMeChipText}>{amIIn ? 'Remove me' : 'Add me'}</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {isPot && potPreview > 0 && (
@@ -2063,6 +2179,7 @@ function BirdiesSettingsRow({
   allPlayers,
   amIIn,
   onToggleMe,
+  onManagePlayers,
 }: {
   bet: BirdiesBet;
   onRename: (name: string) => void;
@@ -2072,6 +2189,7 @@ function BirdiesSettingsRow({
   allPlayers: Player[];
   amIIn?: boolean;
   onToggleMe?: () => void;
+  onManagePlayers: () => void;
 }) {
   const unit = bet.unit;
   const setBirdiesBetUnit = useRoundState((state) => state.setBirdiesBetUnit);
@@ -2147,11 +2265,16 @@ function BirdiesSettingsRow({
 
       <View style={styles.settingsMembersRow}>
         <Text style={styles.settingsRowSubtext}>{describeBetMembers(bet.playerIds, allPlayers)}</Text>
-        {onToggleMe && (
-          <Pressable style={styles.addMeChip} onPress={onToggleMe}>
-            <Text style={styles.addMeChipText}>{amIIn ? 'Remove me' : 'Add me'}</Text>
+        <View style={styles.settingsMembersActions}>
+          <Pressable style={styles.managePlayersChip} onPress={onManagePlayers}>
+            <Text style={styles.managePlayersChipText}>Players</Text>
           </Pressable>
-        )}
+          {onToggleMe && (
+            <Pressable style={styles.addMeChip} onPress={onToggleMe}>
+              <Text style={styles.addMeChipText}>{amIIn ? 'Remove me' : 'Add me'}</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -2166,6 +2289,7 @@ function DoublesSettingsRow({
   allPlayers,
   amIIn,
   onToggleMe,
+  onManagePlayers,
 }: {
   bet: DoublesBet;
   onRename: (name: string) => void;
@@ -2175,6 +2299,7 @@ function DoublesSettingsRow({
   allPlayers: Player[];
   amIIn?: boolean;
   onToggleMe?: () => void;
+  onManagePlayers: () => void;
 }) {
   const unit = bet.unit;
   const setDoublesBetUnit = useRoundState((state) => state.setDoublesBetUnit);
@@ -2246,11 +2371,16 @@ function DoublesSettingsRow({
 
       <View style={styles.settingsMembersRow}>
         <Text style={styles.settingsRowSubtext}>{describeBetMembers(bet.playerIds, allPlayers)}</Text>
-        {onToggleMe && (
-          <Pressable style={styles.addMeChip} onPress={onToggleMe}>
-            <Text style={styles.addMeChipText}>{amIIn ? 'Remove me' : 'Add me'}</Text>
+        <View style={styles.settingsMembersActions}>
+          <Pressable style={styles.managePlayersChip} onPress={onManagePlayers}>
+            <Text style={styles.managePlayersChipText}>Players</Text>
           </Pressable>
-        )}
+          {onToggleMe && (
+            <Pressable style={styles.addMeChip} onPress={onToggleMe}>
+              <Text style={styles.addMeChipText}>{amIIn ? 'Remove me' : 'Add me'}</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -2635,6 +2765,23 @@ const styles = StyleSheet.create({
   },
   addMeChipText: {
     color: '#1a7f37',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  settingsMembersActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  managePlayersChip: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3a6ea5',
+  },
+  managePlayersChipText: {
+    color: '#3a6ea5',
     fontWeight: '600',
     fontSize: 12,
   },
