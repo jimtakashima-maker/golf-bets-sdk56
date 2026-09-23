@@ -2818,16 +2818,19 @@ export const useRoundState = create<RoundState>((set, get) => ({
   },
 
   // Rekeys a name-only player (added via addPlayer - a push key, never a
-  // real uid) onto this device's own uid, in one atomic multi-location
-  // update: every path anywhere in the round that referenced the old id
-  // (scores in every group, not just this one - a player can be moved
-  // between groups mid-round; handicaps; playerTeams/matchPlayPlayerTeams;
-  // every skins/stroke play/birdies/doubles bet they were opted into) is
-  // copied to the new uid and the old id removed. Nothing is left half
-  // migrated - Firebase evaluates every path in a multi-location update
-  // together, so this either fully succeeds or fully fails as one write.
-  // Afterward this device subscribes to the round exactly like a normal
-  // join, now carrying everything that ghost entry already had.
+  // real uid) onto this device's own uid. Two writes, not one: first a
+  // small standalone update that adds this uid to the group's players
+  // list and commits on its own, then a second multi-location update
+  // that removes the ghost id and migrates everything it had (scores in
+  // every group, not just this one - a player can be moved between
+  // groups mid-round; handicaps; playerTeams/matchPlayPlayerTeams; every
+  // skins/stroke play/birdies/doubles bet they were opted into) onto the
+  // new uid. Splitting it this way matters: the scores write rule below
+  // checks group membership, and doing the membership write and the
+  // membership-gated writes in the very same multi-location update made
+  // that check unreliable in practice. Afterward this device subscribes
+  // to the round exactly like a normal join, now carrying everything
+  // that ghost entry already had.
   claimPlayer: async (roundCode, groupId, ghostPlayerId) => {
     const code = roundCode.trim().toUpperCase();
     set({ status: 'connecting', errorMessage: null });
@@ -2852,11 +2855,24 @@ export const useRoundState = create<RoundState>((set, get) => ({
       const ghost = value.groups?.[groupId]?.players?.[ghostPlayerId];
       if (!ghost) throw new Error('That player could not be found - they may have already been claimed.');
 
-      const updates: Record<string, unknown> = {};
       const base = `rounds/${code}`;
 
+      // Add this device's uid as a real player in the group FIRST, as its
+      // own committed write, before touching anything gated on group
+      // membership (scores). The scores write rule checks
+      // groups/$groupId/players/{auth.uid}.exists() - if that check runs as
+      // part of the very same multi-location update that ALSO adds this
+      // membership, whether it sees the membership as already present is
+      // exactly the kind of ambiguity that was silently breaking this flow.
+      // Doing it as its own separate write first sidesteps that: by the
+      // time the migration below runs, this device really is a player in
+      // the group.
+      await dbUpdate(ref(db), {
+        [`${base}/groups/${groupId}/players/${uid}`]: { name: ghost.name, joinedAt: ghost.joinedAt },
+      });
+
+      const updates: Record<string, unknown> = {};
       updates[`${base}/groups/${groupId}/players/${ghostPlayerId}`] = null;
-      updates[`${base}/groups/${groupId}/players/${uid}`] = { name: ghost.name, joinedAt: ghost.joinedAt };
 
       // Scores can exist in any group the ghost entry was ever moved
       // through (movePlayerToGroup keeps the same id but doesn't drag
