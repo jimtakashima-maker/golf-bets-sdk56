@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRoundState, Group, HolesInfo, PlayerHandicaps, toNetScores } from '../state/useRoundState';
 import NassauStatus from '../components/NassauStatus';
 import MatchPlayStatus from '../components/MatchPlayStatus';
@@ -8,49 +7,58 @@ import StrokePlayStatus from '../components/StrokePlayStatus';
 import BirdiesStatus from '../components/BirdiesStatus';
 import DoublesStatus from '../components/DoublesStatus';
 
-type ScoringMode = 'gross' | 'net';
-
 interface PlayerTotal {
   id: string;
   name: string;
   strokes: number;
   toPar: number;
+  netStrokes: number;
+  netToPar: number;
   holesPlayed: number;
 }
 
-// Totals every player's strokes and to-par across whatever holes they've
-// entered, pulling from each tee group's own scores since that's where
-// they live - a player only ever appears in one group. A hole with no par
-// recorded yet falls back to 4 (matching how the Scoring tab treats an
-// unset par) instead of 0, so a round with an incomplete scorecard still
-// reads as a score relative to par rather than a raw stroke total. In net
-// mode, scores are first converted with each player's handicap allocation
-// before par is subtracted.
+// Totals every player's gross AND net strokes/to-par across whatever holes
+// they've entered, pulling from each tee group's own scores since that's
+// where they live - a player only ever appears in one group. A hole with
+// no par recorded yet falls back to 4 (matching how the Scoring tab treats
+// an unset par) instead of 0, so a round with an incomplete scorecard
+// still reads as a score relative to par rather than a raw stroke total.
+// Both are always computed - which of them the board actually shows is a
+// display decision made by the caller (see showNetColumn), not something
+// worth recomputing totals over.
 function computePlayerTotals(
   groups: Group[],
   holes: HolesInfo,
-  mode: ScoringMode,
   handicaps: PlayerHandicaps,
   totalHoles: number
 ): PlayerTotal[] {
   const totals: PlayerTotal[] = [];
   const allPlayers = groups.flatMap((group) => group.players);
   for (const group of groups) {
-    const scores =
-      mode === 'net' ? toNetScores(group.scores, holes, handicaps, allPlayers, totalHoles) : group.scores;
+    const netScores = toNetScores(group.scores, holes, handicaps, allPlayers, totalHoles);
     for (const player of group.players) {
       let strokes = 0;
+      let netStrokes = 0;
       let par = 0;
       let holesPlayed = 0;
-      for (const [holeKey, holeScores] of Object.entries(scores)) {
+      for (const [holeKey, holeScores] of Object.entries(group.scores)) {
         const score = holeScores[player.id];
         if (score == null) continue;
         const rawPar = holes[Number(holeKey)]?.par;
         par += rawPar != null && rawPar > 0 ? rawPar : 4;
         strokes += score;
+        netStrokes += netScores[Number(holeKey)]?.[player.id] ?? score;
         holesPlayed += 1;
       }
-      totals.push({ id: player.id, name: player.name, strokes, toPar: strokes - par, holesPlayed });
+      totals.push({
+        id: player.id,
+        name: player.name,
+        strokes,
+        toPar: strokes - par,
+        netStrokes,
+        netToPar: netStrokes - par,
+        holesPlayed,
+      });
     }
   }
   return totals;
@@ -97,16 +105,19 @@ function LeaderboardBoard({
   groups,
   holes,
   totalHoles,
-  mode,
+  showNetColumn,
   handicaps,
 }: {
   groups: Group[];
   holes: HolesInfo;
   totalHoles: number;
-  mode: ScoringMode;
+  showNetColumn: boolean;
   handicaps: PlayerHandicaps;
 }) {
-  const all = computePlayerTotals(groups, holes, mode, handicaps, totalHoles);
+  const all = computePlayerTotals(groups, holes, handicaps, totalHoles);
+  // Ranked by gross, same as before this had a net column at all - net
+  // strokes exist to show what a bet actually pays on, not to reorder a
+  // leaderboard that's otherwise read as the real, gross tournament order.
   const started = all.filter((player) => player.holesPlayed > 0).sort((a, b) => a.toPar - b.toPar);
   const notStarted = all.filter((player) => player.holesPlayed === 0);
 
@@ -126,11 +137,20 @@ function LeaderboardBoard({
         <Text style={[styles.boardHeaderText, styles.boardPos]}>POS</Text>
         <Text style={[styles.boardHeaderText, styles.boardName]}>PLAYER</Text>
         <Text style={[styles.boardHeaderText, styles.boardThru]}>THRU</Text>
-        <Text style={[styles.boardHeaderText, styles.boardScore]}>SCORE</Text>
+        {showNetColumn ? (
+          <>
+            <Text style={[styles.boardHeaderText, styles.boardScoreSplit]}>GROSS</Text>
+            <Text style={[styles.boardHeaderText, styles.boardScoreSplit]}>NET</Text>
+          </>
+        ) : (
+          <Text style={[styles.boardHeaderText, styles.boardScore]}>SCORE</Text>
+        )}
       </View>
       {ranked.map((player, index) => {
         const isUnder = player.toPar < 0;
         const isOver = player.toPar > 0;
+        const isNetUnder = player.netToPar < 0;
+        const isNetOver = player.netToPar > 0;
         const isLeader = player.posLabel === '1' || player.posLabel === 'T1';
         return (
           <View
@@ -148,16 +168,41 @@ function LeaderboardBoard({
             <Text style={[styles.boardThru, styles.boardThruText]}>
               {thruLabel(player.holesPlayed, totalHoles)}
             </Text>
-            <Text
-              style={[
-                styles.boardScore,
-                styles.boardScoreText,
-                isUnder && styles.boardScoreUnder,
-                isOver && styles.boardScoreOver,
-              ]}
-            >
-              {formatToPar(player.toPar)}
-            </Text>
+            {showNetColumn ? (
+              <>
+                <Text
+                  style={[
+                    styles.boardScoreSplit,
+                    styles.boardScoreText,
+                    isUnder && styles.boardScoreUnder,
+                    isOver && styles.boardScoreOver,
+                  ]}
+                >
+                  {formatToPar(player.toPar)}
+                </Text>
+                <Text
+                  style={[
+                    styles.boardScoreSplit,
+                    styles.boardScoreText,
+                    isNetUnder && styles.boardScoreUnder,
+                    isNetOver && styles.boardScoreOver,
+                  ]}
+                >
+                  {formatToPar(player.netToPar)}
+                </Text>
+              </>
+            ) : (
+              <Text
+                style={[
+                  styles.boardScore,
+                  styles.boardScoreText,
+                  isUnder && styles.boardScoreUnder,
+                  isOver && styles.boardScoreOver,
+                ]}
+              >
+                {formatToPar(player.toPar)}
+              </Text>
+            )}
           </View>
         );
       })}
@@ -181,36 +226,37 @@ export default function LeaderboardScreen() {
   const doubles = useRoundState((state) => state.doubles);
   const totalHoles = useRoundState((state) => state.totalHoles);
   const handicaps = useRoundState((state) => state.handicaps);
-  const [mode, setMode] = useState<ScoringMode>('gross');
+  const nassauNet = useRoundState((state) => state.nassauNet);
+  const matchPlayNet = useRoundState((state) => state.matchPlayNet);
+  const skinsBets = useRoundState((state) => state.skinsBets);
+  const strokePlayBets = useRoundState((state) => state.strokePlayBets);
+  const birdiesBets = useRoundState((state) => state.birdiesBets);
+  const doublesBets = useRoundState((state) => state.doublesBets);
 
   // Bet teams span tee groups, so Nassau results are shown once for the
   // whole round rather than repeated per tee group.
   const allPlayers = groups.flatMap((group) => group.players);
 
+  // The board shows a Net column only when it would actually mean
+  // something to someone - i.e. at least one active bet settles on net
+  // score. With nothing net in play, gross is the only score that matters
+  // to anyone's money, so the board stays exactly as simple as it always
+  // was rather than showing a second column nobody asked for.
+  const anyBetIsNet =
+    nassauNet ||
+    matchPlayNet ||
+    skinsBets.some((bet) => bet.net) ||
+    strokePlayBets.some((bet) => bet.net) ||
+    birdiesBets.some((bet) => bet.net) ||
+    doublesBets.some((bet) => bet.net);
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.headingRow}>
-        <View style={styles.modeChips}>
-          <Pressable
-            style={[styles.modeChip, mode === 'gross' && styles.modeChipActive]}
-            onPress={() => setMode('gross')}
-          >
-            <Text style={[styles.modeChipText, mode === 'gross' && styles.modeChipTextActive]}>Gross</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.modeChip, mode === 'net' && styles.modeChipActive]}
-            onPress={() => setMode('net')}
-          >
-            <Text style={[styles.modeChipText, mode === 'net' && styles.modeChipTextActive]}>Net</Text>
-          </Pressable>
-        </View>
-      </View>
-
       <LeaderboardBoard
         groups={groups}
         holes={holes}
         totalHoles={totalHoles}
-        mode={mode}
+        showNetColumn={anyBetIsNet}
         handicaps={handicaps}
       />
 
@@ -231,36 +277,6 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 24,
-  },
-  headingRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  modeChips: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  modeChip: {
-    paddingVertical: 5,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#f7f7f7',
-  },
-  modeChipActive: {
-    backgroundColor: '#16513a',
-    borderColor: '#16513a',
-  },
-  modeChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#445',
-  },
-  modeChipTextActive: {
-    color: '#fff',
   },
   hint: {
     color: '#667',
@@ -327,6 +343,11 @@ const styles = StyleSheet.create({
   },
   boardScore: {
     width: 48,
+  },
+  // Half-width GROSS/NET pair used instead of boardScore when a net bet
+  // is active - two numbers in roughly the space one used to take.
+  boardScoreSplit: {
+    width: 40,
   },
   boardScoreText: {
     fontSize: 15,
