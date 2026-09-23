@@ -17,6 +17,7 @@ import PreRoundBackground from '../components/PreRoundBackground';
 import AppLogo from '../components/AppLogo';
 import BackButton from '../components/BackButton';
 import InfoButton from '../components/InfoButton';
+import LegalFooter from '../components/LegalFooter';
 
 interface ProfileScreenProps {
   // Omitted when this is the app-opening confirmation gate, shown before
@@ -26,6 +27,10 @@ interface ProfileScreenProps {
   // of "Save", requires both name and handicap before advancing, and
   // saves whatever's dirty along the way.
   onContinue?: () => void;
+  // Omitted on the opening gate, same reasoning as onBack - there's no
+  // point offering a Legal link before a profile even exists yet, since
+  // Welcome (reached right after) offers the same link.
+  onLegal?: () => void;
 }
 
 const HANDICAP_TYPES: { value: HandicapType; label: string }[] = [
@@ -38,7 +43,7 @@ const HANDICAP_TYPES: { value: HandicapType; label: string }[] = [
 // A profile holds the display name and 18-hole handicap that get saved
 // whenever you create or join a round - this screen is just a direct way
 // to see and change any of it without having to start a round to do so.
-export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps) {
+export default function ProfileScreen({ onBack, onContinue, onLegal }: ProfileScreenProps) {
   const profile = useRoundState((state) => state.profile);
   const loadProfile = useRoundState((state) => state.loadProfile);
   const setDisplayName = useRoundState((state) => state.setDisplayName);
@@ -455,6 +460,12 @@ export default function ProfileScreen({ onBack, onContinue }: ProfileScreenProps
       )}
 
       <Text style={styles.versionFooter}>{versionLine}</Text>
+      {onLegal && (
+        <Pressable style={styles.legalLink} onPress={onLegal} hitSlop={8}>
+          <Text style={styles.legalLinkText}>Terms of Service & Privacy Policy</Text>
+        </Pressable>
+      )}
+      <LegalFooter />
     </KeyboardAvoidingView>
   );
 
@@ -632,5 +643,15 @@ const styles = StyleSheet.create({
     color: '#aab',
     fontSize: 11,
     paddingVertical: 6,
+  },
+  legalLink: {
+    alignSelf: 'center',
+    paddingVertical: 4,
+  },
+  legalLinkText: {
+    color: '#667',
+    fontSize: 12,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

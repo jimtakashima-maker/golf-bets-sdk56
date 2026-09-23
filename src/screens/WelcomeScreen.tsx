@@ -3,12 +3,14 @@ import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-nati
 import PreRoundBackground from '../components/PreRoundBackground';
 import AppLogo from '../components/AppLogo';
 import FeedbackModal from '../components/FeedbackModal';
+import LegalFooter from '../components/LegalFooter';
 
 interface WelcomeScreenProps {
   onJoin: () => void;
   onStart: () => void;
   onHistory: () => void;
   onProfile: () => void;
+  onLegal: () => void;
   // Only ever passed by App.tsx when this device's own profile has
   // isAdmin set - everyone else's Welcome screen never even gets this
   // prop, so there's nothing to hide client-side, just nothing to show.
@@ -24,6 +26,7 @@ export default function WelcomeScreen({
   onStart,
   onHistory,
   onProfile,
+  onLegal,
   onAdmin,
   resumeAvailable,
   resuming,
@@ -76,6 +79,10 @@ export default function WelcomeScreen({
           <Pressable style={styles.linkButton} onPress={() => setFeedbackOpen(true)} hitSlop={8}>
             <Text style={styles.historyLinkText}>Send Feedback</Text>
           </Pressable>
+          <Text style={styles.linkDivider}>{'\u00b7'}</Text>
+          <Pressable style={styles.linkButton} onPress={onLegal} hitSlop={8}>
+            <Text style={styles.historyLinkText}>Legal</Text>
+          </Pressable>
         </View>
 
         {onAdmin && (
@@ -84,6 +91,8 @@ export default function WelcomeScreen({
           </Pressable>
         )}
       </View>
+
+      <LegalFooter />
 
       <FeedbackModal visible={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </PreRoundBackground>

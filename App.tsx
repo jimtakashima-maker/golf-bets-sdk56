@@ -11,6 +11,7 @@ import MyHistoryScreen from './src/screens/MyHistoryScreen';
 import RoundDetailScreen from './src/screens/RoundDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AdminScreen from './src/screens/AdminScreen';
+import LegalScreen from './src/screens/LegalScreen';
 import { useRoundState, getSavedActiveRound, type SavedActiveRound } from './src/state/useRoundState';
 
 type Screen =
@@ -25,7 +26,8 @@ type Screen =
   | 'history'
   | 'roundDetail'
   | 'profile'
-  | 'admin';
+  | 'admin'
+  | 'legal';
 
 // Pulls the round code out of a thenpressme://join?code=XXXXX link (the
 // QR on the Match Started screen encodes this) - a plain regex rather than
@@ -53,6 +55,9 @@ export default function App() {
   // Profile can be opened from the welcome screen or from mid-round, so
   // remember where to send 'Back' back to instead of hardcoding welcome.
   const [profileReturnScreen, setProfileReturnScreen] = useState<Screen>('welcome');
+  // Legal can be opened from Welcome or from Profile - same "remember
+  // where 'Back' goes" pattern as profileReturnScreen above.
+  const [legalReturnScreen, setLegalReturnScreen] = useState<Screen>('welcome');
   // Which past round History's "View Round" screen is currently open to -
   // set right before setScreen('roundDetail'), read by the render below.
   const [viewingRoundCode, setViewingRoundCode] = useState<string | null>(null);
@@ -198,8 +203,20 @@ export default function App() {
     return <AdminScreen onBack={() => setScreen('welcome')} />;
   }
 
+  if (screen === 'legal') {
+    return <LegalScreen onBack={() => setScreen(legalReturnScreen)} />;
+  }
+
   if (screen === 'profile') {
-    return <ProfileScreen onBack={() => setScreen(profileReturnScreen)} />;
+    return (
+      <ProfileScreen
+        onBack={() => setScreen(profileReturnScreen)}
+        onLegal={() => {
+          setLegalReturnScreen('profile');
+          setScreen('legal');
+        }}
+      />
+    );
   }
 
   return (
@@ -210,6 +227,10 @@ export default function App() {
       onProfile={() => {
         setProfileReturnScreen('welcome');
         setScreen('profile');
+      }}
+      onLegal={() => {
+        setLegalReturnScreen('welcome');
+        setScreen('legal');
       }}
       onAdmin={profile?.isAdmin ? () => setScreen('admin') : undefined}
       resumeAvailable={!!savedRound}
