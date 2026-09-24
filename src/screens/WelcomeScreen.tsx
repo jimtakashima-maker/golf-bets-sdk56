@@ -9,6 +9,7 @@ interface WelcomeScreenProps {
   onJoin: () => void;
   onStart: () => void;
   onHistory: () => void;
+  onStats: () => void;
   onProfile: () => void;
   onLegal: () => void;
   // Only ever passed by App.tsx when this device's own profile has
@@ -25,6 +26,7 @@ export default function WelcomeScreen({
   onJoin,
   onStart,
   onHistory,
+  onStats,
   onProfile,
   onLegal,
   onAdmin,
@@ -74,6 +76,10 @@ export default function WelcomeScreen({
           <Text style={styles.linkDivider}>{'\u00b7'}</Text>
           <Pressable style={styles.linkButton} onPress={onHistory} hitSlop={8}>
             <Text style={styles.historyLinkText}>My History</Text>
+          </Pressable>
+          <Text style={styles.linkDivider}>{'\u00b7'}</Text>
+          <Pressable style={styles.linkButton} onPress={onStats} hitSlop={8}>
+            <Text style={styles.historyLinkText}>My Stats</Text>
           </Pressable>
           <Text style={styles.linkDivider}>{'\u00b7'}</Text>
           <Pressable style={styles.linkButton} onPress={() => setFeedbackOpen(true)} hitSlop={8}>

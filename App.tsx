@@ -8,6 +8,7 @@ import StartMatchScreen from './src/screens/StartMatchScreen';
 import ScanScorecardScreen from './src/screens/ScanScorecardScreen';
 import RoundScreen from './src/screens/RoundScreen';
 import MyHistoryScreen from './src/screens/MyHistoryScreen';
+import MyStatsScreen from './src/screens/MyStatsScreen';
 import RoundDetailScreen from './src/screens/RoundDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AdminScreen from './src/screens/AdminScreen';
@@ -24,6 +25,7 @@ type Screen =
   | 'scan'
   | 'round'
   | 'history'
+  | 'stats'
   | 'roundDetail'
   | 'profile'
   | 'admin'
@@ -187,6 +189,10 @@ export default function App() {
     );
   }
 
+  if (screen === 'stats') {
+    return <MyStatsScreen onBack={() => setScreen('welcome')} />;
+  }
+
   if (screen === 'roundDetail' && viewingRoundCode) {
     return (
       <RoundDetailScreen
@@ -224,6 +230,7 @@ export default function App() {
       onJoin={() => setScreen('join')}
       onStart={() => setScreen('start')}
       onHistory={() => setScreen('history')}
+      onStats={() => setScreen('stats')}
       onProfile={() => {
         setProfileReturnScreen('welcome');
         setScreen('profile');

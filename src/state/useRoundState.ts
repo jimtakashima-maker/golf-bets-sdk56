@@ -616,11 +616,31 @@ export interface HistoryBreakdownItem {
   amount: number;
 }
 
+// Whether this player's tee shot ended up in the fairway on a hole where
+// that stat applies (par 4s/5s only - a par 3 is played to the green,
+// not a fairway, so it's left null rather than forced into hit/miss).
+export type FairwayResult = 'hit' | 'miss';
+
+// This player's own fairway/green/putts line for one hole - private,
+// never shown to anyone else in the round. gir (green in regulation) is
+// computed, not tapped: strokes taken to reach the green (this hole's
+// score minus putts) at or under par minus 2, the standard definition -
+// see setHoleStat.
+export interface HoleStat {
+  fairway: FairwayResult | null;
+  putts: number | null;
+  gir: boolean;
+}
+
 // One past round's result for the signed-in player, written automatically
 // (by their own device, to their own private history) once that round's
 // bets are all closed. This is the only place a round's money outcome is
 // durably recorded anywhere - the live Settlement screen is purely a
 // client-side computation that vanishes once everyone leaves the round.
+// holeStats, if present, is this player's own fairway/green/putts logging
+// for that round (see setHoleStat) - written live, hole by hole, during
+// play, so it already exists by the time this entry's summary fields are
+// merged in at round-close and is never overwritten by that merge.
 export interface HistoryEntry {
   roundCode: string;
   date: number;
@@ -629,6 +649,7 @@ export interface HistoryEntry {
   opponentNames: string[];
   amount: number;
   breakdown: HistoryBreakdownItem[];
+  holeStats?: Record<number, HoleStat>;
 }
 
 // A full re-fetch of one past round's data by its roundCode, built for the
@@ -870,6 +891,15 @@ interface RoundState {
   setTotalHoles: (totalHoles: 9 | 18) => Promise<void>;
   setScoringGroupId: (groupId: string | null) => void;
   enterScore: (holeNumber: number, playerId: string, strokes: number) => Promise<void>;
+  // This player's own fairway/green/putts line for the round currently in
+  // progress, hole-indexed - separate from the historical holeStats on a
+  // closed-out HistoryEntry, though it's written to the same Firebase
+  // path and ends up there once the round closes.
+  myHoleStats: Record<number, HoleStat>;
+  // Logs this player's own fairway/putts for one hole (fairway is null on
+  // a par 3, where the stat doesn't apply). Private to this player - see
+  // setHoleStat's own comment for how it's stored and how gir is derived.
+  setHoleStat: (holeNumber: number, fairway: FairwayResult | null, putts: number | null) => Promise<void>;
   setHoles: (holes: HolesInfo) => Promise<void>;
   submitGroupScores: (groupId: string) => Promise<void>;
   renameGroup: (groupId: string, name: string) => Promise<void>;
@@ -2251,7 +2281,9 @@ async function recordHistoryEntry(
     breakdown,
   };
   try {
-    await dbSet(ref(db, `players/${uid}/history/${roundCode}`), historyEntry);
+    // update, not set: a merge, so any holeStats already written live
+    // during play (see setHoleStat) isn't wiped out by this summary.
+    await dbUpdate(ref(db, `players/${uid}/history/${roundCode}`), historyEntry);
   } catch {
     // Best-effort - history is a convenience record, never load-bearing for
     // the round itself.
@@ -2526,6 +2558,7 @@ type HistorySnapshotValue = {
   opponentNames?: string[];
   amount?: number;
   breakdown?: HistoryBreakdownItem[];
+  holeStats?: Record<number, HoleStat>;
 };
 
 function historyFromSnapshotValue(value: Record<string, HistorySnapshotValue> | null): HistoryEntry[] {
@@ -2539,8 +2572,24 @@ function historyFromSnapshotValue(value: Record<string, HistorySnapshotValue> | 
       opponentNames: h.opponentNames ?? [],
       amount: h.amount ?? 0,
       breakdown: h.breakdown ?? [],
+      holeStats: h.holeStats ?? {},
     }))
     .sort((a, b) => b.date - a.date);
+}
+
+function holeStatsFromSnapshotValue(
+  value: Record<string, Partial<HoleStat>> | null
+): Record<number, HoleStat> {
+  if (!value) return {};
+  const result: Record<number, HoleStat> = {};
+  for (const [hole, stat] of Object.entries(value)) {
+    result[Number(hole)] = {
+      fairway: stat.fairway ?? null,
+      putts: stat.putts ?? null,
+      gir: stat.gir ?? false,
+    };
+  }
+  return result;
 }
 
 type RegularSnapshotValue = { name?: string; handicap18?: number | null; lastPlayedAt?: number };
@@ -2735,6 +2784,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
   profile: null,
   courses: [],
   history: [],
+  myHoleStats: {},
   regulars: [],
   paymentHandles: null,
   paymentHandlesByUid: {},
@@ -3104,6 +3154,28 @@ export const useRoundState = create<RoundState>((set, get) => ({
       ref(db, `rounds/${roundCode}/groups/${targetGroupId}/scores/${holeNumber}/${playerId}`),
       strokes
     );
+  },
+
+  setHoleStat: async (holeNumber, fairway, putts) => {
+    const { roundCode, myGroupId, playerId, holes, groups } = get();
+    const uid = auth.currentUser?.uid;
+    if (!roundCode || !playerId || !uid) return;
+    const rawPar = holes[holeNumber]?.par;
+    const par = rawPar != null && rawPar > 0 ? rawPar : 4;
+    const myGroup = groups.find((group) => group.id === myGroupId);
+    const strokes = myGroup?.scores[holeNumber]?.[playerId];
+    // Standard GIR definition: reached the green (score minus putts) in
+    // par minus 2 strokes or fewer. Derived, not tapped - see HoleStat.
+    const gir = strokes != null && putts != null ? strokes - putts <= par - 2 : false;
+    const stat: HoleStat = { fairway, putts, gir };
+    set((state) => ({ myHoleStats: { ...state.myHoleStats, [holeNumber]: stat } }));
+    try {
+      // Private to this player - same path recordHistoryEntry merges its
+      // summary into at round-close (see its dbUpdate comment).
+      await dbSet(ref(db, `players/${uid}/history/${roundCode}/holeStats/${holeNumber}`), stat);
+    } catch {
+      // Best-effort, same as recordHistoryEntry - never blocks the round.
+    }
   },
 
   setHoles: async (holes) => {
@@ -3651,6 +3723,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
       previewGroups: [],
       payoutStatus: {},
       paymentHandlesByUid: {},
+      myHoleStats: {},
     });
   },
 
@@ -4214,6 +4287,13 @@ export const useRoundState = create<RoundState>((set, get) => ({
     });
     void dbGet(ref(db, `rounds/${code}/createdAt`)).then((snapshot) => {
       set({ createdAt: snapshot.val() ?? null });
+    });
+
+    // This player's own fairway/putts stats for the round so far - private
+    // per-device data, so a one-time read (like hostId/createdAt above) is
+    // enough to restore them if the app was restarted mid-round.
+    void dbGet(ref(db, `players/${uid}/history/${code}/holeStats`)).then((snapshot) => {
+      set({ myHoleStats: holeStatsFromSnapshotValue(snapshot.val()) });
     });
 
     // Nassau, Match Play, Skins, Stroke Play, and the final settlement all

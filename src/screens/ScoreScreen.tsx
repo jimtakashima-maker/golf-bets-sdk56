@@ -13,6 +13,7 @@ import {
   strokesReceivedOnHole,
 } from '../state/useRoundState';
 import ScoreEntry from '../components/ScoreEntry';
+import MyStatsEntry from '../components/MyStatsEntry';
 import NassauPressPanel from '../components/NassauPressPanel';
 
 export default function ScoreScreen() {
@@ -33,6 +34,8 @@ export default function ScoreScreen() {
   const setCurrentHole = useRoundState((state) => state.setCurrentHole);
   const setScoringGroupId = useRoundState((state) => state.setScoringGroupId);
   const enterScore = useRoundState((state) => state.enterScore);
+  const myHoleStats = useRoundState((state) => state.myHoleStats);
+  const setHoleStat = useRoundState((state) => state.setHoleStat);
   const submitGroupScores = useRoundState((state) => state.submitGroupScores);
   const callNassauPress = useRoundState((state) => state.callNassauPress);
 
@@ -179,6 +182,14 @@ export default function ScoreScreen() {
           strokeIndex={currentStrokeIndex}
           onEnterScore={(playerId, strokes) => enterScore(currentHole, playerId, strokes)}
         />
+
+        {playerId != null && activeGroupId === myGroupId && (
+          <MyStatsEntry
+            par={par}
+            stat={myHoleStats[currentHole]}
+            onChange={(fairway, putts) => setHoleStat(currentHole, fairway, putts)}
+          />
+        )}
       </ScrollView>
 
       {/* Fixed at the bottom (not inside the ScrollView) so hole navigation is
