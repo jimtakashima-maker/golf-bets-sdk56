@@ -75,6 +75,9 @@
         "doublesBets": {
           ".write": "auth != null"
         },
+        "wolfBets": {
+          ".write": "auth != null"
+        },
         "groups": {
           "$groupId": {
             ".write": "auth != null && !data.exists()",

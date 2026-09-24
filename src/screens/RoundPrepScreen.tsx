@@ -23,6 +23,7 @@ import {
   StrokePlayPayoutMode,
   BirdiesBet,
   DoublesBet,
+  WolfBet,
   PressStackingMode,
   MAX_HANDICAP,
   RegularPlayer,
@@ -67,6 +68,7 @@ export default function RoundPrepScreen() {
   const strokePlayBets = useRoundState((state) => state.strokePlayBets);
   const birdiesBets = useRoundState((state) => state.birdiesBets);
   const doublesBets = useRoundState((state) => state.doublesBets);
+  const wolfBets = useRoundState((state) => state.wolfBets);
   const totalHoles = useRoundState((state) => state.totalHoles);
   const setTotalHoles = useRoundState((state) => state.setTotalHoles);
   const handicaps = useRoundState((state) => state.handicaps);
@@ -116,6 +118,12 @@ export default function RoundPrepScreen() {
   const setDoublesBetNet = useRoundState((state) => state.setDoublesBetNet);
   const setDoublesBetAmount = useRoundState((state) => state.setDoublesBetAmount);
   const setPlayerInDoublesBet = useRoundState((state) => state.setPlayerInDoublesBet);
+  const createWolfBet = useRoundState((state) => state.createWolfBet);
+  const renameWolfBet = useRoundState((state) => state.renameWolfBet);
+  const deleteWolfBet = useRoundState((state) => state.deleteWolfBet);
+  const setWolfBetValuePerHole = useRoundState((state) => state.setWolfBetValuePerHole);
+  const setWolfBetLoneWolfMultiplier = useRoundState((state) => state.setWolfBetLoneWolfMultiplier);
+  const setPlayerInWolfBet = useRoundState((state) => state.setPlayerInWolfBet);
   const setPlayerHandicap = useRoundState((state) => state.setPlayerHandicap);
   const nassauAutoPress = useRoundState((state) => state.nassauAutoPress);
   const nassauPressStacking = useRoundState((state) => state.nassauPressStacking);
@@ -186,7 +194,8 @@ export default function RoundPrepScreen() {
     skinsBets.length > 0 ||
     strokePlayBets.length > 0 ||
     birdiesBets.length > 0 ||
-    doublesBets.length > 0;
+    doublesBets.length > 0 ||
+    wolfBets.length > 0;
 
   // Rolls a full slate of bets - team bet, Skins, Stroke Play, whichever
   // random.ts decides to include - sized so no player's worst case passes
@@ -336,6 +345,12 @@ export default function RoundPrepScreen() {
     await setPlayerInDoublesBet(betId, addModalPlayerId, true);
   };
 
+  const handleCreateWolfBetAndAssign = async () => {
+    if (!addModalPlayerId) return;
+    const betId = await createWolfBet();
+    await setPlayerInWolfBet(betId, addModalPlayerId, true);
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Pressable style={styles.surpriseCard} onPress={() => setShowSurpriseModal(true)}>
@@ -460,6 +475,12 @@ export default function RoundPrepScreen() {
         onSetDoublesBetNet={setDoublesBetNet}
         onSetDoublesBetAmount={setDoublesBetAmount}
         onCreateDoublesBet={() => createDoublesBet()}
+        wolfBets={wolfBets}
+        onRenameWolfBet={renameWolfBet}
+        onDeleteWolfBet={deleteWolfBet}
+        onSetWolfBetValuePerHole={setWolfBetValuePerHole}
+        onSetWolfBetLoneWolfMultiplier={setWolfBetLoneWolfMultiplier}
+        onCreateWolfBet={() => createWolfBet()}
         totalHoles={totalHoles}
         playerTeams={playerTeams}
         matchPlayPlayerTeams={matchPlayPlayerTeams}
@@ -471,6 +492,7 @@ export default function RoundPrepScreen() {
         onSetPlayerInStrokePlayBet={setPlayerInStrokePlayBet}
         onSetPlayerInBirdiesBet={setPlayerInBirdiesBet}
         onSetPlayerInDoublesBet={setPlayerInDoublesBet}
+        onSetPlayerInWolfBet={setPlayerInWolfBet}
         groups={groups}
       />
 
@@ -521,6 +543,7 @@ export default function RoundPrepScreen() {
         strokePlayBets={strokePlayBets}
         birdiesBets={birdiesBets}
         doublesBets={doublesBets}
+        wolfBets={wolfBets}
         onSetPlayerTeam={setPlayerTeam}
         onCreateTeam={handleCreateTeamAndAssign}
         onSetMatchPlayPlayerTeam={setMatchPlayPlayerTeam}
@@ -533,6 +556,8 @@ export default function RoundPrepScreen() {
         onCreateBirdiesBet={handleCreateBirdiesBetAndAssign}
         onSetPlayerInDoublesBet={setPlayerInDoublesBet}
         onCreateDoublesBet={handleCreateDoublesBetAndAssign}
+        onSetPlayerInWolfBet={setPlayerInWolfBet}
+        onCreateWolfBet={handleCreateWolfBetAndAssign}
         totalHoles={totalHoles}
         allPlayers={allPlayers}
         groups={groups}
@@ -864,6 +889,7 @@ function AddToModal({
   strokePlayBets,
   birdiesBets,
   doublesBets,
+  wolfBets,
   onSetPlayerTeam,
   onCreateTeam,
   onSetMatchPlayPlayerTeam,
@@ -876,6 +902,8 @@ function AddToModal({
   onCreateBirdiesBet,
   onSetPlayerInDoublesBet,
   onCreateDoublesBet,
+  onSetPlayerInWolfBet,
+  onCreateWolfBet,
   totalHoles,
   allPlayers,
   groups,
@@ -895,6 +923,7 @@ function AddToModal({
   strokePlayBets: StrokePlayBet[];
   birdiesBets: BirdiesBet[];
   doublesBets: DoublesBet[];
+  wolfBets: WolfBet[];
   onSetPlayerTeam: (playerId: string, teamId: string | null) => void;
   onCreateTeam: () => void;
   onSetMatchPlayPlayerTeam: (playerId: string, teamId: string | null) => void;
@@ -907,6 +936,8 @@ function AddToModal({
   onCreateBirdiesBet: () => void;
   onSetPlayerInDoublesBet: (betId: string, playerId: string, inBet: boolean) => void;
   onCreateDoublesBet: () => void;
+  onSetPlayerInWolfBet: (betId: string, playerId: string, inBet: boolean) => void;
+  onCreateWolfBet: () => void;
   totalHoles: number;
   allPlayers: Player[];
   groups: Group[];
@@ -1087,6 +1118,28 @@ function AddToModal({
           <Text style={styles.modalAddRowText}>+ New Doubles Bet</Text>
         </Pressable>
 
+        <Text style={[styles.modalSectionLabel, styles.modalSectionLabelSpaced]}>Wolf Bets</Text>
+        {wolfBets.length === 0 && <Text style={styles.modalEmptyHint}>No Wolf bets yet</Text>}
+        {wolfBets.map((bet) => {
+          const selected = bet.playerIds.includes(player.id);
+          return (
+            <Pressable
+              key={bet.id}
+              style={[styles.modalRow, selected && styles.modalRowSelected]}
+              onPress={() => onSetPlayerInWolfBet(bet.id, player.id, !selected)}
+            >
+              <Text style={[styles.modalRowText, selected && styles.modalRowTextSelected]}>
+                {selected ? '✓ ' : ''}
+                {bet.name}
+              </Text>
+              <Text style={styles.modalRowSubtext}>{describeWolfBet(bet)}</Text>
+            </Pressable>
+          );
+        })}
+        <Pressable style={styles.modalAddRow} onPress={onCreateWolfBet}>
+          <Text style={styles.modalAddRowText}>+ New Wolf Bet</Text>
+        </Pressable>
+
         <Pressable style={styles.modalCloseButton} onPress={onClose}>
           <Text style={styles.modalCloseButtonText}>Done</Text>
         </Pressable>
@@ -1224,6 +1277,20 @@ function describeDoublesBet(bet: DoublesBet): string {
   return `${description} • ${count} player${count === 1 ? '' : 's'}`;
 }
 
+// Wolf is always net and always money (see WolfBet's own comment) so
+// there's no unit/net to mention here, just the per-hole value and how
+// much bigger a Lone Wolf hole pays.
+function describeWolfBet(bet: WolfBet): string {
+  const parts: string[] = [
+    bet.valuePerHole > 0 ? `${formatStakeAmount(bet.valuePerHole, 'money')}/hole` : 'No $ set',
+    `${bet.loneWolfMultiplier}x lone wolf`,
+  ];
+
+  const count = bet.playerIds.length;
+  const description = parts.join(', ');
+  return `${description} • ${count} player${count === 1 ? '' : 's'}`;
+}
+
 // The compact, always-visible strip for bet-level money and rules - the
 // stuff that's set once and rarely touched, as opposed to who's playing
 // which bet (handled per-player above via "Add to"). One line per team or
@@ -1278,6 +1345,12 @@ function BetSettings({
   onSetDoublesBetNet,
   onSetDoublesBetAmount,
   onCreateDoublesBet,
+  wolfBets,
+  onRenameWolfBet,
+  onDeleteWolfBet,
+  onSetWolfBetValuePerHole,
+  onSetWolfBetLoneWolfMultiplier,
+  onCreateWolfBet,
   totalHoles,
   playerTeams,
   matchPlayPlayerTeams,
@@ -1289,6 +1362,7 @@ function BetSettings({
   onSetPlayerInStrokePlayBet,
   onSetPlayerInBirdiesBet,
   onSetPlayerInDoublesBet,
+  onSetPlayerInWolfBet,
   groups,
 }: {
   nassauNet: boolean;
@@ -1340,6 +1414,12 @@ function BetSettings({
   onSetDoublesBetNet: (betId: string, net: boolean) => void;
   onSetDoublesBetAmount: (betId: string, amountPerDouble: number) => void;
   onCreateDoublesBet: () => void;
+  wolfBets: WolfBet[];
+  onRenameWolfBet: (betId: string, name: string) => void;
+  onDeleteWolfBet: (betId: string) => void;
+  onSetWolfBetValuePerHole: (betId: string, valuePerHole: number) => void;
+  onSetWolfBetLoneWolfMultiplier: (betId: string, multiplier: number) => void;
+  onCreateWolfBet: () => void;
   totalHoles: number;
   playerTeams: PlayerTeams;
   matchPlayPlayerTeams: PlayerTeams;
@@ -1351,6 +1431,7 @@ function BetSettings({
   onSetPlayerInStrokePlayBet: (betId: string, playerId: string, inBet: boolean) => void;
   onSetPlayerInBirdiesBet: (betId: string, playerId: string, inBet: boolean) => void;
   onSetPlayerInDoublesBet: (betId: string, playerId: string, inBet: boolean) => void;
+  onSetPlayerInWolfBet: (betId: string, playerId: string, inBet: boolean) => void;
   groups: Group[];
 }) {
   // Every bet type starts collapsed unless the round already has something
@@ -1368,6 +1449,7 @@ function BetSettings({
   const [strokePlayOpen, setStrokePlayOpen] = useState(strokePlayBets.length > 0);
   const [birdiesOpen, setBirdiesOpen] = useState(birdiesBets.length > 0);
   const [doublesOpen, setDoublesOpen] = useState(doublesBets.length > 0);
+  const [wolfOpen, setWolfOpen] = useState(wolfBets.length > 0);
 
   useEffect(() => {
     if (teams.length > 0) setNassauOpen(true);
@@ -1387,13 +1469,16 @@ function BetSettings({
   useEffect(() => {
     if (doublesBets.length > 0) setDoublesOpen(true);
   }, [doublesBets.length]);
+  useEffect(() => {
+    if (wolfBets.length > 0) setWolfOpen(true);
+  }, [wolfBets.length]);
 
   // Which bet's full roster picker is open, if any - lets a Skins/Stroke
   // Play/Birdies/Doubles bet (a flat player pool, unlike Nassau/Match
   // Play's paired teams) get its whole player list set from one modal
   // instead of visiting every player's own "Add to" picker one at a time.
   const [rosterModal, setRosterModal] = useState<
-    { betType: 'skins' | 'strokePlay' | 'birdies' | 'doubles'; betId: string } | null
+    { betType: 'skins' | 'strokePlay' | 'birdies' | 'doubles' | 'wolf'; betId: string } | null
   >(null);
   const activeRosterBet: { name: string; playerIds: string[] } | null =
     rosterModal == null
@@ -1404,13 +1489,16 @@ function BetSettings({
       ? strokePlayBets.find((bet) => bet.id === rosterModal.betId) ?? null
       : rosterModal.betType === 'birdies'
       ? birdiesBets.find((bet) => bet.id === rosterModal.betId) ?? null
-      : doublesBets.find((bet) => bet.id === rosterModal.betId) ?? null;
+      : rosterModal.betType === 'doubles'
+      ? doublesBets.find((bet) => bet.id === rosterModal.betId) ?? null
+      : wolfBets.find((bet) => bet.id === rosterModal.betId) ?? null;
   const setRosterPlayer = (playerId: string, inBet: boolean) => {
     if (rosterModal == null) return;
     if (rosterModal.betType === 'skins') onSetPlayerInSkinsBet(rosterModal.betId, playerId, inBet);
     else if (rosterModal.betType === 'strokePlay') onSetPlayerInStrokePlayBet(rosterModal.betId, playerId, inBet);
     else if (rosterModal.betType === 'birdies') onSetPlayerInBirdiesBet(rosterModal.betId, playerId, inBet);
-    else onSetPlayerInDoublesBet(rosterModal.betId, playerId, inBet);
+    else if (rosterModal.betType === 'doubles') onSetPlayerInDoublesBet(rosterModal.betId, playerId, inBet);
+    else onSetPlayerInWolfBet(rosterModal.betId, playerId, inBet);
   };
 
   // Whether at least one of the six game types still has nothing set up -
@@ -1425,7 +1513,8 @@ function BetSettings({
     skinsBets.length === 0 ||
     strokePlayBets.length === 0 ||
     birdiesBets.length === 0 ||
-    doublesBets.length === 0;
+    doublesBets.length === 0 ||
+    wolfBets.length === 0;
 
   return (
     <View style={styles.settingsContainer}>
@@ -1461,6 +1550,11 @@ function BetSettings({
             {doublesBets.length === 0 && (
               <Pressable style={styles.gamePickerChip} onPress={onCreateDoublesBet}>
                 <Text style={styles.gamePickerChipText}>+ Doubles</Text>
+              </Pressable>
+            )}
+            {wolfBets.length === 0 && (
+              <Pressable style={styles.gamePickerChip} onPress={onCreateWolfBet}>
+                <Text style={styles.gamePickerChipText}>+ Wolf</Text>
               </Pressable>
             )}
           </View>
@@ -1710,13 +1804,59 @@ function BetSettings({
         </View>
       )}
 
+      {wolfBets.length > 0 && (
+        <View style={styles.betCardAccent}>
+          <SectionHeader
+            tone="accent"
+            title="Wolf"
+            open={wolfOpen}
+            onToggle={() => setWolfOpen((prev) => !prev)}
+            summary={`${wolfBets.length} bet${wolfBets.length === 1 ? '' : 's'}`}
+          />
+          {wolfOpen && (
+            <View style={styles.betCardBody}>
+              {wolfBets.map((bet) => (
+                <WolfBetSettingsRow
+                  key={bet.id}
+                  bet={bet}
+                  onRename={(name) => onRenameWolfBet(bet.id, name)}
+                  onSetValuePerHole={(value) => onSetWolfBetValuePerHole(bet.id, value)}
+                  onSetLoneWolfMultiplier={(value) => onSetWolfBetLoneWolfMultiplier(bet.id, value)}
+                  onDelete={() => onDeleteWolfBet(bet.id)}
+                  onManagePlayers={() => setRosterModal({ betType: 'wolf', betId: bet.id })}
+                  allPlayers={allPlayers}
+                  amIIn={playerId != null && bet.playerIds.includes(playerId)}
+                  onToggleMe={
+                    playerId ? () => onSetPlayerInWolfBet(bet.id, playerId, !bet.playerIds.includes(playerId)) : undefined
+                  }
+                />
+              ))}
+              <Pressable style={styles.settingsAddRow} onPress={onCreateWolfBet}>
+                <Text style={styles.settingsAddRowText}>+ New Wolf Bet</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      )}
+
       <BetRosterModal
         visible={rosterModal != null}
         betName={activeRosterBet?.name ?? ''}
         allPlayers={allPlayers}
         selectedIds={activeRosterBet?.playerIds ?? []}
         onToggle={setRosterPlayer}
-        onSelectAll={() => allPlayers.forEach((player) => setRosterPlayer(player.id, true))}
+        onSelectAll={() => {
+          // Every setRosterPlayer call below is async and re-reads the
+          // store's own wolfBets independently, so firing all of them at
+          // once would let a Wolf bet's 4-player cap race past itself (see
+          // setPlayerInWolfBet) - capping how many calls even get made,
+          // using this one render-time snapshot of who's already in,
+          // closes that regardless of how the writes land.
+          const alreadyIn = activeRosterBet?.playerIds ?? [];
+          const toAdd = allPlayers.filter((player) => !alreadyIn.includes(player.id));
+          const capped = rosterModal?.betType === 'wolf' ? toAdd.slice(0, Math.max(0, 4 - alreadyIn.length)) : toAdd;
+          capped.forEach((player) => setRosterPlayer(player.id, true));
+        }}
         onClear={() => (activeRosterBet?.playerIds ?? []).forEach((id) => setRosterPlayer(id, false))}
         onClose={() => setRosterModal(null)}
       />
@@ -2488,6 +2628,149 @@ function DoublesSettingsRow({
   );
 }
 
+// Wolf's own row - no unit toggle (always money) and no net toggle
+// (always net), unlike Skins/Stroke Play/Birdies/Doubles, since WolfBet
+// hardcodes both (see its own comment). Two value fields instead of one:
+// the base per-hole value, and how many times bigger a Lone Wolf hole
+// pays. The rotation order (who's Wolf on which hole) is shown read-only
+// here - it's just bet.playerIds in the order they were added, wrapping
+// around every totalHoles/playerIds.length holes - see WolfBet's comment
+// and setPlayerInWolfBet for how that order gets assigned.
+function WolfBetSettingsRow({
+  bet,
+  onRename,
+  onSetValuePerHole,
+  onSetLoneWolfMultiplier,
+  onDelete,
+  allPlayers,
+  amIIn,
+  onToggleMe,
+  onManagePlayers,
+}: {
+  bet: WolfBet;
+  onRename: (name: string) => void;
+  onSetValuePerHole: (valuePerHole: number) => void;
+  onSetLoneWolfMultiplier: (multiplier: number) => void;
+  onDelete: () => void;
+  allPlayers: Player[];
+  amIIn?: boolean;
+  onToggleMe?: () => void;
+  onManagePlayers: () => void;
+}) {
+  const [nameDraft, setNameDraft] = useState(bet.name);
+  const [valueDraft, setValueDraft] = useState(String(bet.valuePerHole));
+  const [valueFocused, setValueFocused] = useState(false);
+  const [multiplierDraft, setMultiplierDraft] = useState(String(bet.loneWolfMultiplier));
+  const [multiplierFocused, setMultiplierFocused] = useState(false);
+
+  useEffect(() => {
+    if (!valueFocused) setValueDraft(String(bet.valuePerHole));
+  }, [bet.valuePerHole, valueFocused]);
+
+  useEffect(() => {
+    if (!multiplierFocused) setMultiplierDraft(String(bet.loneWolfMultiplier));
+  }, [bet.loneWolfMultiplier, multiplierFocused]);
+
+  const commitName = () => {
+    const trimmed = nameDraft.trim();
+    if (trimmed && trimmed !== bet.name) {
+      onRename(trimmed);
+    } else {
+      setNameDraft(bet.name);
+    }
+  };
+
+  const commitValue = () => {
+    const parsed = Number(valueDraft);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      onSetValuePerHole(parsed);
+      setValueDraft(String(parsed));
+    } else {
+      setValueDraft(String(bet.valuePerHole));
+    }
+  };
+
+  const commitMultiplier = () => {
+    const parsed = Number(multiplierDraft);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      onSetLoneWolfMultiplier(parsed);
+      setMultiplierDraft(String(parsed));
+    } else {
+      setMultiplierDraft(String(bet.loneWolfMultiplier));
+    }
+  };
+
+  const rotationLabel =
+    bet.playerIds.length > 0
+      ? bet.playerIds
+          .map((id: string, index: number) => `${index + 1}. ${allPlayers.find((player) => player.id === id)?.name ?? '?'}`)
+          .join('  ')
+      : 'No one in this bet yet';
+
+  return (
+    <View style={styles.betItemCard}>
+      <View style={styles.settingsRow}>
+        <TextInput
+          style={styles.settingsNameInput}
+          value={nameDraft}
+          onChangeText={setNameDraft}
+          onEndEditing={commitName}
+          onBlur={commitName}
+        />
+        <RemoveButton label={bet.name} onConfirm={onDelete} />
+      </View>
+
+      <View style={styles.wolfSettingsOptionsRow}>
+        <View style={styles.valueField}>
+          <Text style={styles.valueLabel}>$/hole</Text>
+          <TextInput
+            style={styles.valueInput}
+            value={valueDraft}
+            onChangeText={setValueDraft}
+            onFocus={() => setValueFocused(true)}
+            onEndEditing={commitValue}
+            onBlur={() => {
+              setValueFocused(false);
+              commitValue();
+            }}
+            keyboardType="decimal-pad"
+          />
+        </View>
+        <View style={styles.valueField}>
+          <Text style={styles.valueLabel}>Lone Wolf x</Text>
+          <TextInput
+            style={styles.valueInput}
+            value={multiplierDraft}
+            onChangeText={setMultiplierDraft}
+            onFocus={() => setMultiplierFocused(true)}
+            onEndEditing={commitMultiplier}
+            onBlur={() => {
+              setMultiplierFocused(false);
+              commitMultiplier();
+            }}
+            keyboardType="decimal-pad"
+          />
+        </View>
+        <Text style={styles.betHint}>Net, 3-4 players, Wolf rotates every hole</Text>
+      </View>
+
+      <View style={styles.settingsMembersRow}>
+        <Text style={styles.settingsRowSubtext}>{rotationLabel}</Text>
+        <View style={styles.settingsMembersActions}>
+          <Pressable style={styles.managePlayersChip} onPress={onManagePlayers}>
+            <Text style={styles.managePlayersChipText}>Players</Text>
+          </Pressable>
+          {onToggleMe && (
+            <Pressable style={styles.addMeChip} onPress={onToggleMe}>
+              <Text style={styles.addMeChipText}>{amIIn ? 'Remove me' : 'Add me'}</Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -3023,6 +3306,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   doublesSettingsOptionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 6,
+  },
+  wolfSettingsOptionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',

@@ -235,6 +235,82 @@ export interface SkinsBetResult {
 // players. Computed round-wide, across every tee group, same as Nassau.
 export type SkinsState = SkinsBetResult[];
 
+// One player's fairway/green (money) result for a Wolf bet - see
+// WolfBet and computeWolfForBet. amount is already the fully-settled
+// zero-sum total across the whole bet, in the bet's own unit - unlike
+// Skins' win-count totals, there's no separate payout formula to run
+// afterward, computeSettlement just sums these straight in.
+export interface WolfPlayerTotal {
+  id: string;
+  label: string;
+  amount: number;
+}
+
+// This hole's Wolf decision and outcome. wolfId rotates through the
+// bet's playerIds in order, one per hole (hole 1 -> playerIds[0], hole
+// 2 -> playerIds[1], wrapping around) - it's derived from the rotation,
+// never stored on its own. partnerId/loneWolf is the one thing that
+// actually gets recorded (see setWolfDecision); everything else here is
+// computed from that plus the hole's scores.
+export interface WolfHoleResult {
+  hole: number;
+  wolfId: string;
+  partnerId: string | null;
+  loneWolf: boolean;
+  scores: Record<string, number | null>;
+  // null until the hole has both a decision and every roster player's
+  // score - 'tie' means no money changes hands for this hole.
+  winningSide: 'wolf' | 'others' | 'tie' | null;
+  resolved: boolean;
+}
+
+export interface WolfBetResult {
+  betId: string;
+  name: string;
+  totals: WolfPlayerTotal[];
+  holesResolved: number;
+  holes: WolfHoleResult[];
+}
+
+// One result per Wolf bet in the round, computed independently - in
+// practice almost always just one (a single foursome/threesome playing
+// Wolf together), but the shape stays a list for the same reason
+// Skins/Birdies/Doubles do: nothing else has to change if that ever
+// stops being true.
+export type WolfState = WolfBetResult[];
+
+// This player's own Wolf decision for one hole - null/absent means the
+// hole hasn't been decided yet, distinct from loneWolf (decided, no
+// partner) and a real partnerId (decided, partnered). See setWolfDecision
+// for why this needs its own explicit loneWolf flag rather than just
+// using a null partnerId for that (Firebase deletes a node written with
+// a literal null value, so 'lone wolf' has to be a flag, not an absence).
+export interface WolfDecision {
+  loneWolf: boolean;
+  partnerId: string | null;
+}
+
+// A single Wolf bet - always one tee-sized group (3 or 4 players) playing
+// together, always net (handicap strokes applied), always money (no
+// drinks unit like the flat-pool bets - Wolf is naturally per-player
+// stakes, not a shared pot). playerIds is the ONE place in this app
+// where a bet's player list is order-sensitive: index 0 is the Wolf on
+// hole 1, index 1 on hole 2, and so on, wrapping around - see
+// setPlayerInWolfBet for how that order gets assigned.
+export interface WolfBet {
+  id: string;
+  name: string;
+  // Base value of one hole, in dollars - what changes hands per player
+  // on a normal partnered win/loss. 0 means no money attached yet.
+  valuePerHole: number;
+  // How much bigger a Lone Wolf hole is than a partnered one - the Wolf
+  // collects (or pays) valuePerHole times this, from/to EACH other
+  // player individually, rather than splitting one pot with a partner.
+  loneWolfMultiplier: number;
+  createdAt: number;
+  playerIds: string[];
+}
+
 export interface BirdiesPlayerTotal {
   id: string;
   label: string;
@@ -428,7 +504,7 @@ export interface BetCardRow {
 // whole distribution at once matters most.
 export interface BetCard {
   key: string;
-  category: 'Nassau' | 'Match Play' | 'Skins' | 'Stroke Play' | 'Birdies' | 'Doubles';
+  category: 'Nassau' | 'Match Play' | 'Skins' | 'Stroke Play' | 'Birdies' | 'Doubles' | 'Wolf';
   title: string;
   isPot: boolean;
   rows: BetCardRow[];
@@ -813,6 +889,13 @@ interface RoundState {
   skinsBets: SkinsBet[];
   skins: SkinsState;
 
+  // Wolf bets, round-wide - see WolfBet. wolf is recomputed locally
+  // whenever groups (scores), wolfBets, or handicaps change, same as
+  // every other bet type.
+  wolfBets: WolfBet[];
+  wolf: WolfState;
+  wolfDecisions: Record<string, Record<number, WolfDecision>>;
+
   // Stroke Play bets, round-wide - any number of independent pools (same
   // shape as Skins), settled on total score relative to par rather than
   // holes won. Only pays out once every entrant has finished the round.
@@ -953,6 +1036,21 @@ interface RoundState {
   setSkinsBetBuyIn: (betId: string, buyIn: number) => Promise<void>;
   setSkinsBetUnit: (betId: string, unit: StakesUnit) => Promise<void>;
   setPlayerInSkinsBet: (betId: string, playerId: string, inBet: boolean) => Promise<void>;
+  createWolfBet: (name?: string) => Promise<string>;
+  renameWolfBet: (betId: string, name: string) => Promise<void>;
+  deleteWolfBet: (betId: string) => Promise<void>;
+  setWolfBetValuePerHole: (betId: string, valuePerHole: number) => Promise<void>;
+  setWolfBetLoneWolfMultiplier: (betId: string, multiplier: number) => Promise<void>;
+  // Adding a player appends them to the end of the rotation (see
+  // WolfBet.playerIds) and is a no-op once the bet already has 4 - Wolf's
+  // math only supports a 3- or 4-player group, so this is the one place
+  // that cap is actually enforced, not just assumed by the UI.
+  setPlayerInWolfBet: (betId: string, playerId: string, inBet: boolean) => Promise<void>;
+  // Records the Wolf decision for this hole - a real partnerId to
+  // partner up, or null to declare Lone Wolf (never "no decision";
+  // clearWolfDecision is how a hole goes back to undecided).
+  setWolfDecision: (betId: string, hole: number, partnerId: string | null) => Promise<void>;
+  clearWolfDecision: (betId: string, hole: number) => Promise<void>;
   createStrokePlayBet: (name?: string) => Promise<string>;
   renameStrokePlayBet: (betId: string, name: string) => Promise<void>;
   deleteStrokePlayBet: (betId: string) => Promise<void>;
@@ -1702,6 +1800,127 @@ function computeSkins(
   );
 }
 
+/**
+ * One Wolf bet's full result, hole by hole. Always net scores (Wolf has
+ * no gross-scoring option - see WolfBet). Each hole's side comparison is
+ * best-ball: the wolf side's lowest score among its 1-2 players against
+ * the other side's lowest among its 1-3, same "best of the side" idea
+ * Nassau/Match Play already use for a team's hole score. A hole with no
+ * decision yet, or a missing score from anyone in the roster, is left
+ * unresolved rather than guessed at.
+ */
+function computeWolfForBet(
+  players: Player[],
+  netScores: HoleScores,
+  decisions: Record<number, WolfDecision>,
+  bet: WolfBet,
+  totalHoles: number
+): WolfBetResult {
+  const roster = bet.playerIds
+    .map((id) => players.find((player) => player.id === id))
+    .filter((player): player is Player => player != null);
+
+  // Wolf's rotation and lone-wolf math only make sense for a 3- or
+  // 4-player group - see setPlayerInWolfBet for where the upper end of
+  // that is actually enforced.
+  if (roster.length < 3) {
+    return { betId: bet.id, name: bet.name, totals: [], holesResolved: 0, holes: [] };
+  }
+
+  const points = new Map<string, number>(roster.map((player) => [player.id, 0]));
+  let holesResolved = 0;
+  const holeResults: WolfHoleResult[] = [];
+
+  for (let hole = 1; hole <= totalHoles; hole += 1) {
+    const wolfIndex = (hole - 1) % roster.length;
+    const wolfPlayer = roster[wolfIndex];
+    const decision = decisions[hole];
+    const holeScores = netScores[hole];
+
+    const scoreMap: Record<string, number | null> = {};
+    roster.forEach((player) => {
+      scoreMap[player.id] = holeScores?.[player.id] ?? null;
+    });
+
+    const allScored = roster.every((player) => holeScores?.[player.id] != null);
+    if (!decision || !allScored) {
+      holeResults.push({
+        hole,
+        wolfId: wolfPlayer.id,
+        partnerId: decision?.partnerId ?? null,
+        loneWolf: decision?.loneWolf ?? false,
+        scores: scoreMap,
+        winningSide: null,
+        resolved: false,
+      });
+      continue;
+    }
+
+    const partnerId = decision.loneWolf ? null : decision.partnerId;
+    const wolfSideIds = partnerId ? [wolfPlayer.id, partnerId] : [wolfPlayer.id];
+    const otherSideIds = roster.map((player) => player.id).filter((id) => !wolfSideIds.includes(id));
+
+    const wolfBest = Math.min(...wolfSideIds.map((id) => holeScores![id]!));
+    const otherBest = Math.min(...otherSideIds.map((id) => holeScores![id]!));
+
+    holesResolved += 1;
+
+    let winningSide: 'wolf' | 'others' | 'tie';
+    if (wolfBest < otherBest) winningSide = 'wolf';
+    else if (otherBest < wolfBest) winningSide = 'others';
+    else winningSide = 'tie';
+
+    if (winningSide !== 'tie') {
+      const isLoneWolf = partnerId == null;
+      // A partnered hole exchanges the flat base value; a Lone Wolf hole
+      // exchanges that value times the multiplier, and does it with EACH
+      // opponent individually rather than splitting one pot - see
+      // WolfBet.loneWolfMultiplier.
+      const perOpponentValue = bet.valuePerHole * (isLoneWolf ? bet.loneWolfMultiplier : 1);
+      const wolfSideWon = winningSide === 'wolf';
+      for (const otherId of otherSideIds) {
+        const delta = wolfSideWon ? perOpponentValue : -perOpponentValue;
+        for (const wolfSideId of wolfSideIds) {
+          // Partnered: the two partners split what's won/lost against
+          // this one opponent. Lone Wolf: the sole wolf-side player
+          // takes all of it, against each opponent in turn.
+          const share = delta / wolfSideIds.length;
+          points.set(wolfSideId, (points.get(wolfSideId) ?? 0) + share);
+        }
+        points.set(otherId, (points.get(otherId) ?? 0) - delta);
+      }
+    }
+
+    holeResults.push({
+      hole,
+      wolfId: wolfPlayer.id,
+      partnerId,
+      loneWolf: partnerId == null,
+      scores: scoreMap,
+      winningSide,
+      resolved: true,
+    });
+  }
+
+  const totals: WolfPlayerTotal[] = roster
+    .map((player) => ({ id: player.id, label: player.name, amount: points.get(player.id) ?? 0 }))
+    .sort((a, b) => b.amount - a.amount);
+
+  return { betId: bet.id, name: bet.name, totals, holesResolved, holes: holeResults };
+}
+
+function computeWolf(
+  players: Player[],
+  netScores: HoleScores,
+  bets: WolfBet[],
+  decisionsByBet: Record<string, Record<number, WolfDecision>>,
+  totalHoles: number
+): WolfState {
+  return bets.map((bet) =>
+    computeWolfForBet(players, netScores, decisionsByBet[bet.id] ?? {}, bet, totalHoles)
+  );
+}
+
 // Falls back to par 4 for a hole with no par recorded yet, matching how
 // the Scoring tab treats an unset par - so an incomplete scorecard never
 // makes a Stroke Play total read as raw strokes instead of relative to par.
@@ -1969,6 +2188,7 @@ export function allBetsClosed(
   strokePlay: StrokePlayState,
   birdies: BirdiesState,
   doubles: DoublesState,
+  wolf: WolfState,
   totalHoles: number,
   nassauPressResults: NassauPressResult[]
 ): boolean {
@@ -1978,11 +2198,12 @@ export function allBetsClosed(
   const strokePlayDone = strokePlay.every((bet) => bet.totals.length === 0 || bet.resolved);
   const birdiesDone = birdies.every((bet) => bet.totals.length === 0 || bet.holesResolved >= totalHoles);
   const doublesDone = doubles.every((bet) => bet.totals.length === 0 || bet.holesResolved >= totalHoles);
+  const wolfDone = wolf.every((bet) => bet.totals.length === 0 || bet.holesResolved >= totalHoles);
   const pressesDone = nassauPressResults.every((press) =>
     isNassauSegmentResolved(press.state, press.endHole - press.startHole + 1)
   );
   return (
-    nassauDone && matchPlayDone && skinsDone && strokePlayDone && birdiesDone && doublesDone && pressesDone
+    nassauDone && matchPlayDone && skinsDone && strokePlayDone && birdiesDone && doublesDone && wolfDone && pressesDone
   );
 }
 
@@ -2074,6 +2295,8 @@ function computeSettlement(
   birdiesBets: BirdiesBet[],
   doubles: DoublesState,
   doublesBets: DoublesBet[],
+  wolf: WolfState,
+  wolfBets: WolfBet[],
   totalHoles: number
 ): { settlement: Settlement; betCards: BetCard[] } {
   const net = new Map<string, number>();
@@ -2234,6 +2457,20 @@ function computeSettlement(
       const amount = settings.amountPerDouble * (totalDoubles - total.doubleCount * eligibleCount);
       bump(total.id, amount, bet.name);
       recordCard(`doubles-${bet.betId}`, 'Doubles', bet.name, false, total.id, amount);
+    }
+  }
+
+  // Wolf's per-player totals are already fully zero-sum dollar amounts
+  // (see computeWolfForBet) - nothing left to run a payout formula on,
+  // just add them straight in, gated on the bet actually having a value
+  // set (same guard every other bet type uses to skip an un-configured one).
+  const wolfBetById = new Map(wolfBets.map((bet) => [bet.id, bet]));
+  for (const bet of wolf) {
+    const settings = wolfBetById.get(bet.betId);
+    if (!settings || settings.valuePerHole <= 0 || bet.totals.length < 3) continue;
+    for (const total of bet.totals) {
+      bump(total.id, total.amount, bet.name);
+      recordCard(`wolf-${bet.betId}`, 'Wolf', bet.name, false, total.id, total.amount);
     }
   }
 
@@ -2411,6 +2648,72 @@ function skinsBetsFromSnapshotValue(
       playerIds: b.players ? Object.keys(b.players) : [],
     }))
     .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+interface WolfDecisionSnapshotValue {
+  loneWolf?: boolean;
+  partnerId?: string;
+}
+
+interface WolfBetSnapshotValue {
+  name?: string;
+  valuePerHole?: number;
+  loneWolfMultiplier?: number;
+  createdAt?: number;
+  // playerId -> rotation order (see WolfBet.playerIds) - a plain
+  // Record rather than an RTDB array, since arrays-of-objects in
+  // Firebase are unreliable once entries get removed from the middle.
+  players?: Record<string, number> | null;
+  // hole number (as a string key, RTDB's own doing) -> that hole's
+  // decision, if one's been made yet. Lives nested under the bet
+  // itself (not a separate top-level node) purely so one Firebase
+  // rules entry for wolfBets covers both.
+  decisions?: Record<string, WolfDecisionSnapshotValue> | null;
+}
+
+function wolfBetsFromSnapshotValue(
+  value: Record<string, WolfBetSnapshotValue> | null
+): WolfBet[] {
+  if (!value) return [];
+  return Object.entries(value)
+    .map(([id, b]) => ({
+      id,
+      name: b.name ?? 'Wolf',
+      valuePerHole: b.valuePerHole ?? 0,
+      // Missing multiplier means this bet predates the setting - default
+      // to the standard "double" rule.
+      loneWolfMultiplier: b.loneWolfMultiplier ?? 2,
+      createdAt: b.createdAt ?? 0,
+      playerIds: b.players
+        ? Object.entries(b.players)
+            .sort(([, orderA], [, orderB]) => orderA - orderB)
+            .map(([playerId]) => playerId)
+        : [],
+    }))
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+// Parses the same raw rounds/{code}/wolfBets snapshot wolfBetsFromSnapshotValue
+// does, but pulls out each bet's per-hole decisions instead of its config -
+// the two live in the same Firebase node (see WolfBetSnapshotValue) so one
+// listener update feeds both state fields at once.
+function wolfDecisionsFromSnapshotValue(
+  value: Record<string, WolfBetSnapshotValue> | null
+): Record<string, Record<number, WolfDecision>> {
+  if (!value) return {};
+  const result: Record<string, Record<number, WolfDecision>> = {};
+  for (const [betId, b] of Object.entries(value)) {
+    if (!b.decisions) continue;
+    const byHole: Record<number, WolfDecision> = {};
+    for (const [hole, d] of Object.entries(b.decisions)) {
+      byHole[Number(hole)] = {
+        loneWolf: d.loneWolf === true,
+        partnerId: d.loneWolf ? null : d.partnerId ?? null,
+      };
+    }
+    result[betId] = byHole;
+  }
+  return result;
 }
 
 interface StrokePlaySnapshotValue {
@@ -2652,6 +2955,7 @@ let detachMatchPlayAmountsListener: (() => void) | null = null;
 let detachStrokePlayBetsListener: (() => void) | null = null;
 let detachBirdiesBetsListener: (() => void) | null = null;
 let detachDoublesBetsListener: (() => void) | null = null;
+let detachWolfBetsListener: (() => void) | null = null;
 let detachPayoutStatusListener: (() => void) | null = null;
 let detachSmackTalkListener: (() => void) | null = null;
 
@@ -2748,6 +3052,10 @@ function detachListeners() {
     detachDoublesBetsListener();
     detachDoublesBetsListener = null;
   }
+  if (detachWolfBetsListener) {
+    detachWolfBetsListener();
+    detachWolfBetsListener = null;
+  }
   if (detachPayoutStatusListener) {
     detachPayoutStatusListener();
     detachPayoutStatusListener = null;
@@ -2792,6 +3100,9 @@ export const useRoundState = create<RoundState>((set, get) => ({
   matchPlay: [],
   skinsBets: [],
   skins: [],
+  wolfBets: [],
+  wolf: [],
+  wolfDecisions: {},
   strokePlayBets: [],
   strokePlay: [],
   birdiesBets: [],
@@ -3427,6 +3738,85 @@ export const useRoundState = create<RoundState>((set, get) => ({
     }
   },
 
+  // Wolf lives at the round level too, but unlike Skins/Stroke
+  // Play/Birdies/Doubles it's a single ordered roster (see WolfBet's own
+  // comment) rather than an open pool - order is what decides whose turn
+  // it is to be Wolf each hole.
+  createWolfBet: async (name) => {
+    const { roundCode, wolfBets } = get();
+    if (!roundCode) throw new Error('Not in a round.');
+    const betRef = push(ref(db, `rounds/${roundCode}/wolfBets`));
+    const betId = betRef.key as string;
+    await dbSet(betRef, {
+      name: name?.trim() || `Wolf ${wolfBets.length + 1}`,
+      valuePerHole: 0,
+      loneWolfMultiplier: 2,
+      createdAt: Date.now(),
+    });
+    return betId;
+  },
+
+  renameWolfBet: async (betId, name) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/wolfBets/${betId}/name`), name);
+  },
+
+  deleteWolfBet: async (betId) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbRemove(ref(db, `rounds/${roundCode}/wolfBets/${betId}`));
+  },
+
+  setWolfBetValuePerHole: async (betId, valuePerHole) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/wolfBets/${betId}/valuePerHole`), valuePerHole);
+  },
+
+  setWolfBetLoneWolfMultiplier: async (betId, multiplier) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/wolfBets/${betId}/loneWolfMultiplier`), multiplier);
+  },
+
+  setPlayerInWolfBet: async (betId, playerId, inBet) => {
+    const { roundCode, wolfBets } = get();
+    if (!roundCode) return;
+    const path = ref(db, `rounds/${roundCode}/wolfBets/${betId}/players/${playerId}`);
+    if (inBet) {
+      const bet = wolfBets.find((b) => b.id === betId);
+      // Wolf's math only works for a 3- or 4-player group - silently
+      // refuse a 5th rather than let the roster grow past what
+      // computeWolfForBet actually supports.
+      if (bet && bet.playerIds.length >= 4) return;
+      // Appending with the current roster size as the order value keeps
+      // rotation order equal to "the order players were added in" -
+      // removing someone leaves a gap in the numbers, which is harmless
+      // since the snapshot parser only sorts by relative order, not by
+      // the exact values.
+      await dbSet(path, bet?.playerIds.length ?? 0);
+    } else {
+      await dbRemove(path);
+    }
+  },
+
+  setWolfDecision: async (betId, hole, partnerId) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    // Firebase deletes a node written with a literal null value, so
+    // Lone Wolf (partnerId null) has to be its own explicit flag rather
+    // than an absent/null partnerId field - see WolfDecision.
+    const value = partnerId ? { loneWolf: false, partnerId } : { loneWolf: true };
+    await dbSet(ref(db, `rounds/${roundCode}/wolfBets/${betId}/decisions/${hole}`), value);
+  },
+
+  clearWolfDecision: async (betId, hole) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbRemove(ref(db, `rounds/${roundCode}/wolfBets/${betId}/decisions/${hole}`));
+  },
+
   // Stroke Play bets live at the round level too, same shape as Skins -
   // each is its own independent pool that can pull players from any tee
   // group, and a player can be opted into more than one at once.
@@ -3749,6 +4139,9 @@ export const useRoundState = create<RoundState>((set, get) => ({
       matchPlay: [],
       skinsBets: [],
       skins: [],
+      wolfBets: [],
+      wolf: [],
+      wolfDecisions: {},
       strokePlayBets: [],
       strokePlay: [],
       birdiesBets: [],
@@ -4045,6 +4438,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
         strokePlayBets?: unknown;
         birdiesBets?: unknown;
         doublesBets?: unknown;
+        wolfBets?: unknown;
         payoutStatus?: Record<string, Partial<PayoutStatusEntry> | undefined>;
       } | null;
 
@@ -4084,6 +4478,10 @@ export const useRoundState = create<RoundState>((set, get) => ({
       const birdiesBets = birdiesBetsFromSnapshotValue(value?.birdiesBets as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const doublesBets = doublesBetsFromSnapshotValue(value?.doublesBets as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const wolfBets = wolfBetsFromSnapshotValue(value?.wolfBets as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const wolfDecisions = wolfDecisionsFromSnapshotValue(value?.wolfBets as any);
 
       const payoutStatusRaw = value?.payoutStatus ?? {};
       const payoutStatus: Record<string, PayoutStatusEntry> = {};
@@ -4132,6 +4530,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
       const strokePlay = computeStrokePlay(allPlayers, grossScores, netScores, holes, strokePlayBets, totalHoles);
       const birdies = computeBirdies(allPlayers, grossScores, netScores, holes, birdiesBets, totalHoles);
       const doubles = computeDoubles(allPlayers, grossScores, netScores, holes, doublesBets, totalHoles);
+      const wolf = computeWolf(allPlayers, netScores, wolfBets, wolfDecisions, totalHoles);
       const { settlement, betCards } = computeSettlement(
         allPlayers,
         nassau,
@@ -4147,6 +4546,8 @@ export const useRoundState = create<RoundState>((set, get) => ({
         birdiesBets,
         doubles,
         doublesBets,
+        wolf,
+        wolfBets,
         totalHoles
       );
 
@@ -4319,6 +4720,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
     const strokePlayBetsRef = ref(db, `rounds/${code}/strokePlayBets`);
     const birdiesBetsRef = ref(db, `rounds/${code}/birdiesBets`);
     const doublesBetsRef = ref(db, `rounds/${code}/doublesBets`);
+    const wolfBetsRef = ref(db, `rounds/${code}/wolfBets`);
     const payoutStatusRef = ref(db, `rounds/${code}/payoutStatus`);
     const smackTalkRef = ref(db, `rounds/${code}/smackTalk`);
     // Only stickers sent after this device subscribed should ever pop up -
@@ -4384,6 +4786,8 @@ export const useRoundState = create<RoundState>((set, get) => ({
         strokePlayBets,
         birdiesBets,
         doublesBets,
+        wolfBets,
+        wolfDecisions,
         handicaps,
         holes,
         totalHoles,
@@ -4426,6 +4830,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
       const strokePlay = computeStrokePlay(allPlayers, grossScores, netScores, holes, strokePlayBets, totalHoles);
       const birdies = computeBirdies(allPlayers, grossScores, netScores, holes, birdiesBets, totalHoles);
       const doubles = computeDoubles(allPlayers, grossScores, netScores, holes, doublesBets, totalHoles);
+      const wolf = computeWolf(allPlayers, netScores, wolfBets, wolfDecisions, totalHoles);
       const { settlement, betCards } = computeSettlement(
         allPlayers,
         nassau,
@@ -4441,15 +4846,17 @@ export const useRoundState = create<RoundState>((set, get) => ({
         birdiesBets,
         doubles,
         doublesBets,
+        wolf,
+        wolfBets,
         totalHoles
       );
-      set({ nassau, nassauPressResults, matchPlay, skins, strokePlay, birdies, doubles, settlement, betCards });
+      set({ nassau, nassauPressResults, matchPlay, skins, strokePlay, birdies, doubles, wolf, settlement, betCards });
 
       // Once every bet is closed, record this device's own result to its
       // own private history - harmless to re-run on every recompute while
       // closed stays true, since a listener only fires when the underlying
       // data actually changes, not on a timer.
-      if (allBetsClosed(nassau, matchPlay, skins, strokePlay, birdies, doubles, totalHoles, nassauPressResults)) {
+      if (allBetsClosed(nassau, matchPlay, skins, strokePlay, birdies, doubles, wolf, totalHoles, nassauPressResults)) {
         void recordHistoryEntry(code, uid, createdAt, courseName, totalHoles, allPlayers, settlement, betCards);
         void recordRegulars(uid, allPlayers, handicaps);
       }
@@ -4606,6 +5013,16 @@ export const useRoundState = create<RoundState>((set, get) => ({
 
     detachDoublesBetsListener = onValue(doublesBetsRef, (snapshot) => {
       set({ doublesBets: doublesBetsFromSnapshotValue(snapshot.val()) });
+      recomputeAll();
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    detachWolfBetsListener = onValue(wolfBetsRef, (snapshot) => {
+      const value = snapshot.val() as any;
+      set({
+        wolfBets: wolfBetsFromSnapshotValue(value),
+        wolfDecisions: wolfDecisionsFromSnapshotValue(value),
+      });
       recomputeAll();
     });
 

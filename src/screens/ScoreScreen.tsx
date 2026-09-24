@@ -11,11 +11,14 @@ import {
   NASSAU_HALF_HOLES,
   relativeHandicaps,
   strokesReceivedOnHole,
+  WolfBet,
+  WolfDecision,
 } from '../state/useRoundState';
 import ScoreEntry from '../components/ScoreEntry';
 import MyStatsEntry from '../components/MyStatsEntry';
 import SmackTalkSender from '../components/SmackTalkSender';
 import NassauPressPanel from '../components/NassauPressPanel';
+import WolfDecisionCard from '../components/WolfDecisionCard';
 
 export default function ScoreScreen() {
   const groups = useRoundState((state) => state.groups);
@@ -31,6 +34,8 @@ export default function ScoreScreen() {
   const handicaps = useRoundState((state) => state.handicaps);
   const nassauPressResults = useRoundState((state) => state.nassauPressResults);
   const nassauPressStacking = useRoundState((state) => state.nassauPressStacking);
+  const wolfBets = useRoundState((state) => state.wolfBets);
+  const wolfDecisions = useRoundState((state) => state.wolfDecisions);
 
   const setCurrentHole = useRoundState((state) => state.setCurrentHole);
   const setScoringGroupId = useRoundState((state) => state.setScoringGroupId);
@@ -39,6 +44,8 @@ export default function ScoreScreen() {
   const setHoleStat = useRoundState((state) => state.setHoleStat);
   const submitGroupScores = useRoundState((state) => state.submitGroupScores);
   const callNassauPress = useRoundState((state) => state.callNassauPress);
+  const setWolfDecision = useRoundState((state) => state.setWolfDecision);
+  const clearWolfDecision = useRoundState((state) => state.clearWolfDecision);
 
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [smackTalkOpen, setSmackTalkOpen] = useState(false);
@@ -84,6 +91,14 @@ export default function ScoreScreen() {
     (matchup) =>
       matchup.playerIdsA.every((id) => activeGroupPlayerIds.has(id)) &&
       matchup.playerIdsB.every((id) => activeGroupPlayerIds.has(id))
+  );
+
+  // A Wolf bet only makes sense to run from one scoring device when its
+  // whole rotation (3 or 4 players) is in the tee group being scored right
+  // now - a bet split across tee groups has no single device that could
+  // ever see every player's score to resolve a hole (see computeWolfForBet).
+  const activeGroupWolfBets = wolfBets.filter(
+    (bet) => bet.playerIds.length >= 3 && bet.playerIds.every((id) => activeGroupPlayerIds.has(id))
   );
 
   // Any player who didn't get an explicit score on the hole being left is
@@ -189,6 +204,18 @@ export default function ScoreScreen() {
           strokeIndex={currentStrokeIndex}
           onEnterScore={(playerId, strokes) => enterScore(currentHole, playerId, strokes)}
         />
+
+        {activeGroupWolfBets.map((bet) => (
+          <WolfDecisionCard
+            key={bet.id}
+            bet={bet}
+            decision={wolfDecisions[bet.id]?.[currentHole]}
+            allPlayers={allPlayers}
+            currentHole={currentHole}
+            onSetDecision={(partnerId) => setWolfDecision(bet.id, currentHole, partnerId)}
+            onClearDecision={() => clearWolfDecision(bet.id, currentHole)}
+          />
+        ))}
 
         {playerId != null && activeGroupId === myGroupId && (
           <MyStatsEntry

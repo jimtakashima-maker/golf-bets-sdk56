@@ -7,6 +7,7 @@ import {
   StrokePlayState,
   BirdiesState,
   DoublesState,
+  WolfState,
   NassauPressResult,
   Settlement,
   SettlementLineItem,
@@ -50,6 +51,7 @@ function openItems(
   strokePlay: StrokePlayState,
   birdies: BirdiesState,
   doubles: DoublesState,
+  wolf: WolfState,
   totalHoles: number,
   nassauPressResults: NassauPressResult[]
 ): string[] {
@@ -95,6 +97,11 @@ function openItems(
   for (const bet of doubles) {
     if (bet.totals.length > 0 && bet.holesResolved < totalHoles) {
       items.push(`Doubles: ${bet.name}`);
+    }
+  }
+  for (const bet of wolf) {
+    if (bet.totals.length > 0 && bet.holesResolved < totalHoles) {
+      items.push(`Wolf: ${bet.name}`);
     }
   }
   return items;
@@ -444,6 +451,7 @@ export default function SettlementScreen() {
   const strokePlay = useRoundState((state) => state.strokePlay);
   const birdies = useRoundState((state) => state.birdies);
   const doubles = useRoundState((state) => state.doubles);
+  const wolf = useRoundState((state) => state.wolf);
   const totalHoles = useRoundState((state) => state.totalHoles);
   const roundCode = useRoundState((state) => state.roundCode);
   const paymentHandlesByUid = useRoundState((state) => state.paymentHandlesByUid);
@@ -459,10 +467,10 @@ export default function SettlementScreen() {
   // as "not settled yet" rather than just missing from the list.
   const allPlayers = groups.flatMap((group) => group.players);
   const settlementById = new Map(settlement.map((entry) => [entry.id, entry]));
-  const closed = allBetsClosed(nassau, matchPlay, skins, strokePlay, birdies, doubles, totalHoles, nassauPressResults);
+  const closed = allBetsClosed(nassau, matchPlay, skins, strokePlay, birdies, doubles, wolf, totalHoles, nassauPressResults);
   const open = closed
     ? []
-    : openItems(nassau, matchPlay, skins, strokePlay, birdies, doubles, totalHoles, nassauPressResults);
+    : openItems(nassau, matchPlay, skins, strokePlay, birdies, doubles, wolf, totalHoles, nassauPressResults);
   const potCards = betCards.filter((card) => card.isPot);
   // Only worth recommending once every bet is actually final - a plan
   // built on totals that are still moving would just have to be redone.
