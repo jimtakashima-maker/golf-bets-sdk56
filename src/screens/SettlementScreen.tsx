@@ -8,6 +8,7 @@ import {
   BirdiesState,
   DoublesState,
   WolfState,
+  RyderCupState,
   NassauPressResult,
   Settlement,
   SettlementLineItem,
@@ -52,6 +53,7 @@ function openItems(
   birdies: BirdiesState,
   doubles: DoublesState,
   wolf: WolfState,
+  ryderCup: RyderCupState,
   totalHoles: number,
   nassauPressResults: NassauPressResult[]
 ): string[] {
@@ -102,6 +104,11 @@ function openItems(
   for (const bet of wolf) {
     if (bet.totals.length > 0 && bet.holesResolved < totalHoles) {
       items.push(`Wolf: ${bet.name}`);
+    }
+  }
+  for (const bet of ryderCup) {
+    if (bet.matches.length > 0 && !bet.resolved) {
+      items.push(`Ryder Cup: ${bet.name} (${bet.teamAPoints}-${bet.teamBPoints})`);
     }
   }
   return items;
@@ -452,6 +459,7 @@ export default function SettlementScreen() {
   const birdies = useRoundState((state) => state.birdies);
   const doubles = useRoundState((state) => state.doubles);
   const wolf = useRoundState((state) => state.wolf);
+  const ryderCup = useRoundState((state) => state.ryderCup);
   const totalHoles = useRoundState((state) => state.totalHoles);
   const roundCode = useRoundState((state) => state.roundCode);
   const paymentHandlesByUid = useRoundState((state) => state.paymentHandlesByUid);
@@ -467,10 +475,21 @@ export default function SettlementScreen() {
   // as "not settled yet" rather than just missing from the list.
   const allPlayers = groups.flatMap((group) => group.players);
   const settlementById = new Map(settlement.map((entry) => [entry.id, entry]));
-  const closed = allBetsClosed(nassau, matchPlay, skins, strokePlay, birdies, doubles, wolf, totalHoles, nassauPressResults);
+  const closed = allBetsClosed(
+    nassau,
+    matchPlay,
+    skins,
+    strokePlay,
+    birdies,
+    doubles,
+    wolf,
+    ryderCup,
+    totalHoles,
+    nassauPressResults
+  );
   const open = closed
     ? []
-    : openItems(nassau, matchPlay, skins, strokePlay, birdies, doubles, wolf, totalHoles, nassauPressResults);
+    : openItems(nassau, matchPlay, skins, strokePlay, birdies, doubles, wolf, ryderCup, totalHoles, nassauPressResults);
   const potCards = betCards.filter((card) => card.isPot);
   // Only worth recommending once every bet is actually final - a plan
   // built on totals that are still moving would just have to be redone.

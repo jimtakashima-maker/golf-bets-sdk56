@@ -78,6 +78,9 @@
         "wolfBets": {
           ".write": "auth != null"
         },
+        "ryderCupBets": {
+          ".write": "auth != null"
+        },
         "groups": {
           "$groupId": {
             ".write": "auth != null && !data.exists()",

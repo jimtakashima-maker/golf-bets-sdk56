@@ -13,12 +13,14 @@ import {
   strokesReceivedOnHole,
   WolfBet,
   WolfDecision,
+  RYDER_CUP_SEGMENT_HOLES,
 } from '../state/useRoundState';
 import ScoreEntry from '../components/ScoreEntry';
 import MyStatsEntry from '../components/MyStatsEntry';
 import SmackTalkSender from '../components/SmackTalkSender';
 import NassauPressPanel from '../components/NassauPressPanel';
 import WolfDecisionCard from '../components/WolfDecisionCard';
+import RyderCupAltShotCard from '../components/RyderCupAltShotCard';
 
 export default function ScoreScreen() {
   const groups = useRoundState((state) => state.groups);
@@ -36,6 +38,8 @@ export default function ScoreScreen() {
   const nassauPressStacking = useRoundState((state) => state.nassauPressStacking);
   const wolfBets = useRoundState((state) => state.wolfBets);
   const wolfDecisions = useRoundState((state) => state.wolfDecisions);
+  const ryderCupBets = useRoundState((state) => state.ryderCupBets);
+  const ryderCupAltShotScores = useRoundState((state) => state.ryderCupAltShotScores);
 
   const setCurrentHole = useRoundState((state) => state.setCurrentHole);
   const setScoringGroupId = useRoundState((state) => state.setScoringGroupId);
@@ -46,6 +50,7 @@ export default function ScoreScreen() {
   const callNassauPress = useRoundState((state) => state.callNassauPress);
   const setWolfDecision = useRoundState((state) => state.setWolfDecision);
   const clearWolfDecision = useRoundState((state) => state.clearWolfDecision);
+  const setAltShotScore = useRoundState((state) => state.setAltShotScore);
 
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [smackTalkOpen, setSmackTalkOpen] = useState(false);
@@ -101,6 +106,19 @@ export default function ScoreScreen() {
     (bet) => bet.playerIds.length >= 3 && bet.playerIds.every((id) => activeGroupPlayerIds.has(id))
   );
 
+  const [altShotStart, altShotEnd] = RYDER_CUP_SEGMENT_HOLES.altShot;
+  const activeGroupRyderCupAltShotMatches =
+    currentHole >= altShotStart && currentHole <= altShotEnd
+      ? ryderCupBets.flatMap((bet) =>
+          bet.altShotMatches
+            .filter(
+              (match) =>
+                [...match.teamAPlayerIds, ...match.teamBPlayerIds].every((id) => activeGroupPlayerIds.has(id))
+            )
+            .map((match) => ({ bet, match }))
+        )
+      : [];
+
   // Any player who didn't get an explicit score on the hole being left is
   // assumed to have made par - so tapping Next always locks in a real score
   // instead of leaving the hole blank.
@@ -110,6 +128,11 @@ export default function ScoreScreen() {
       if (holeScores[player.id] == null) {
         enterScore(currentHole, player.id, par);
       }
+    });
+    activeGroupRyderCupAltShotMatches.forEach(({ bet, match }) => {
+      const matchScores = ryderCupAltShotScores[bet.id]?.[match.id];
+      if (matchScores?.teamA[currentHole] == null) setAltShotScore(bet.id, match.id, 'A', currentHole, par);
+      if (matchScores?.teamB[currentHole] == null) setAltShotScore(bet.id, match.id, 'B', currentHole, par);
     });
   };
 
@@ -214,6 +237,20 @@ export default function ScoreScreen() {
             currentHole={currentHole}
             onSetDecision={(partnerId) => setWolfDecision(bet.id, currentHole, partnerId)}
             onClearDecision={() => clearWolfDecision(bet.id, currentHole)}
+          />
+        ))}
+
+        {activeGroupRyderCupAltShotMatches.map(({ bet, match }) => (
+          <RyderCupAltShotCard
+            key={match.id}
+            bet={bet}
+            match={match}
+            scoresA={ryderCupAltShotScores[bet.id]?.[match.id]?.teamA}
+            scoresB={ryderCupAltShotScores[bet.id]?.[match.id]?.teamB}
+            allPlayers={allPlayers}
+            currentHole={currentHole}
+            par={par}
+            onEnterScore={(side, strokes) => setAltShotScore(bet.id, match.id, side, currentHole, strokes)}
           />
         ))}
 

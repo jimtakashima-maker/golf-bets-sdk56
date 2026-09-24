@@ -24,6 +24,7 @@ import {
   BirdiesBet,
   DoublesBet,
   WolfBet,
+  RyderCupBet,
   PressStackingMode,
   MAX_HANDICAP,
   RegularPlayer,
@@ -34,6 +35,7 @@ import {
 } from '../state/useRoundState';
 import NassauSettings from '../components/NassauSettings';
 import StakesUnitToggle from '../components/StakesUnitToggle';
+import RyderCupBetSettings from '../components/RyderCupBetSettings';
 import { generateRandomBets, RandomBetPlan } from '../lib/randomBetGenerator';
 
 // Shown to every player while a round is being organized (and reachable
@@ -69,6 +71,7 @@ export default function RoundPrepScreen() {
   const birdiesBets = useRoundState((state) => state.birdiesBets);
   const doublesBets = useRoundState((state) => state.doublesBets);
   const wolfBets = useRoundState((state) => state.wolfBets);
+  const ryderCupBets = useRoundState((state) => state.ryderCupBets);
   const totalHoles = useRoundState((state) => state.totalHoles);
   const setTotalHoles = useRoundState((state) => state.setTotalHoles);
   const handicaps = useRoundState((state) => state.handicaps);
@@ -124,6 +127,7 @@ export default function RoundPrepScreen() {
   const setWolfBetValuePerHole = useRoundState((state) => state.setWolfBetValuePerHole);
   const setWolfBetLoneWolfMultiplier = useRoundState((state) => state.setWolfBetLoneWolfMultiplier);
   const setPlayerInWolfBet = useRoundState((state) => state.setPlayerInWolfBet);
+  const createRyderCupBet = useRoundState((state) => state.createRyderCupBet);
   const setPlayerHandicap = useRoundState((state) => state.setPlayerHandicap);
   const nassauAutoPress = useRoundState((state) => state.nassauAutoPress);
   const nassauPressStacking = useRoundState((state) => state.nassauPressStacking);
@@ -195,7 +199,8 @@ export default function RoundPrepScreen() {
     strokePlayBets.length > 0 ||
     birdiesBets.length > 0 ||
     doublesBets.length > 0 ||
-    wolfBets.length > 0;
+    wolfBets.length > 0 ||
+    ryderCupBets.length > 0;
 
   // Rolls a full slate of bets - team bet, Skins, Stroke Play, whichever
   // random.ts decides to include - sized so no player's worst case passes
@@ -481,6 +486,8 @@ export default function RoundPrepScreen() {
         onSetWolfBetValuePerHole={setWolfBetValuePerHole}
         onSetWolfBetLoneWolfMultiplier={setWolfBetLoneWolfMultiplier}
         onCreateWolfBet={() => createWolfBet()}
+        ryderCupBets={ryderCupBets}
+        onCreateRyderCupBet={() => createRyderCupBet()}
         totalHoles={totalHoles}
         playerTeams={playerTeams}
         matchPlayPlayerTeams={matchPlayPlayerTeams}
@@ -1351,6 +1358,8 @@ function BetSettings({
   onSetWolfBetValuePerHole,
   onSetWolfBetLoneWolfMultiplier,
   onCreateWolfBet,
+  ryderCupBets,
+  onCreateRyderCupBet,
   totalHoles,
   playerTeams,
   matchPlayPlayerTeams,
@@ -1420,6 +1429,8 @@ function BetSettings({
   onSetWolfBetValuePerHole: (betId: string, valuePerHole: number) => void;
   onSetWolfBetLoneWolfMultiplier: (betId: string, multiplier: number) => void;
   onCreateWolfBet: () => void;
+  ryderCupBets: RyderCupBet[];
+  onCreateRyderCupBet: () => void;
   totalHoles: number;
   playerTeams: PlayerTeams;
   matchPlayPlayerTeams: PlayerTeams;
@@ -1450,6 +1461,7 @@ function BetSettings({
   const [birdiesOpen, setBirdiesOpen] = useState(birdiesBets.length > 0);
   const [doublesOpen, setDoublesOpen] = useState(doublesBets.length > 0);
   const [wolfOpen, setWolfOpen] = useState(wolfBets.length > 0);
+  const [ryderCupOpen, setRyderCupOpen] = useState(ryderCupBets.length > 0);
 
   useEffect(() => {
     if (teams.length > 0) setNassauOpen(true);
@@ -1472,6 +1484,9 @@ function BetSettings({
   useEffect(() => {
     if (wolfBets.length > 0) setWolfOpen(true);
   }, [wolfBets.length]);
+  useEffect(() => {
+    if (ryderCupBets.length > 0) setRyderCupOpen(true);
+  }, [ryderCupBets.length]);
 
   // Which bet's full roster picker is open, if any - lets a Skins/Stroke
   // Play/Birdies/Doubles bet (a flat player pool, unlike Nassau/Match
@@ -1514,7 +1529,8 @@ function BetSettings({
     strokePlayBets.length === 0 ||
     birdiesBets.length === 0 ||
     doublesBets.length === 0 ||
-    wolfBets.length === 0;
+    wolfBets.length === 0 ||
+    (totalHoles === 18 && ryderCupBets.length === 0);
 
   return (
     <View style={styles.settingsContainer}>
@@ -1555,6 +1571,11 @@ function BetSettings({
             {wolfBets.length === 0 && (
               <Pressable style={styles.gamePickerChip} onPress={onCreateWolfBet}>
                 <Text style={styles.gamePickerChipText}>+ Wolf</Text>
+              </Pressable>
+            )}
+            {totalHoles === 18 && ryderCupBets.length === 0 && (
+              <Pressable style={styles.gamePickerChip} onPress={onCreateRyderCupBet}>
+                <Text style={styles.gamePickerChipText}>+ Ryder Cup</Text>
               </Pressable>
             )}
           </View>
@@ -1833,6 +1854,28 @@ function BetSettings({
               ))}
               <Pressable style={styles.settingsAddRow} onPress={onCreateWolfBet}>
                 <Text style={styles.settingsAddRowText}>+ New Wolf Bet</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      )}
+
+      {ryderCupBets.length > 0 && (
+        <View style={styles.betCardAccent}>
+          <SectionHeader
+            tone="accent"
+            title="Ryder Cup"
+            open={ryderCupOpen}
+            onToggle={() => setRyderCupOpen((prev) => !prev)}
+            summary={`${ryderCupBets.length} bet${ryderCupBets.length === 1 ? '' : 's'}`}
+          />
+          {ryderCupOpen && (
+            <View style={styles.betCardBody}>
+              {ryderCupBets.map((bet) => (
+                <RyderCupBetSettings key={bet.id} bet={bet} allPlayers={allPlayers} />
+              ))}
+              <Pressable style={styles.settingsAddRow} onPress={onCreateRyderCupBet}>
+                <Text style={styles.settingsAddRowText}>+ New Ryder Cup Bet</Text>
               </Pressable>
             </View>
           )}

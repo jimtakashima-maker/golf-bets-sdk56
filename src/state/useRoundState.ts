@@ -311,6 +311,102 @@ export interface WolfBet {
   playerIds: string[];
 }
 
+// One player-vs-player or pair-vs-pair match inside a Ryder Cup bet - the
+// building block every segment (Best Ball, Modified Alternate Shot,
+// Singles) is made of. Ryder Cup pairings are always picked by hand
+// rather than derived from add-order the way Wolf's rotation is, since
+// who partners whom is exactly the strategic decision the format is
+// about - see RoundPrepScreen's match builder.
+export interface RyderCupPairMatch {
+  id: string;
+  teamAPlayerIds: [string, string];
+  teamBPlayerIds: [string, string];
+}
+
+export interface RyderCupSinglesMatch {
+  id: string;
+  teamAPlayerId: string;
+  teamBPlayerId: string;
+}
+
+// A single Ryder Cup bet - two named sides, a flat per-player buy-in
+// (winner-take-all, not a $ value per point - see computeRyderCupForBet),
+// and three independent lists of matches, one per segment. A segment
+// with no matches in it simply contributes no points to either side -
+// nothing forces every segment to be filled in before the round starts.
+// Segments always run holes 1-6 (Best Ball), 7-12 (Modified Alternate
+// Shot), 13-18 (Singles) - see RYDER_CUP_SEGMENT_HOLES - since the
+// format needs a real 18 holes, this bet type isn't offered on a 9-hole
+// round (see RoundPrepScreen's game picker).
+export interface RyderCupBet {
+  id: string;
+  name: string;
+  teamAName: string;
+  teamBName: string;
+  // Flat amount every player on both sides puts into the pot; the side
+  // with more total points at the end splits it, an overall tie refunds
+  // everyone their own buy-in.
+  buyIn: number;
+  createdAt: number;
+  // Each side's roster, independent of who's actually been slotted into
+  // a match yet - a match can only be built from players already on the
+  // matching side's roster (see addPairMatch/addSinglesMatch), and
+  // removing someone from a roster cascades to drop any match they were
+  // in (see setPlayerInRyderCupTeam).
+  teamAPlayerIds: string[];
+  teamBPlayerIds: string[];
+  bestBallMatches: RyderCupPairMatch[];
+  altShotMatches: RyderCupPairMatch[];
+  singlesMatches: RyderCupSinglesMatch[];
+}
+
+export const RYDER_CUP_SEGMENT_HOLES: Record<'bestBall' | 'altShot' | 'singles', [number, number]> = {
+  bestBall: [1, 6],
+  altShot: [7, 12],
+  singles: [13, 18],
+};
+
+export const RYDER_CUP_SEGMENT_LABELS: Record<'bestBall' | 'altShot' | 'singles', string> = {
+  bestBall: 'Best Ball',
+  altShot: 'Modified Alternate Shot',
+  singles: 'Singles',
+};
+
+export interface RyderCupMatchResult {
+  id: string;
+  segment: 'bestBall' | 'altShot' | 'singles';
+  teamALabel: string;
+  teamBLabel: string;
+  pointsA: number;
+  pointsB: number;
+  holesPlayed: number;
+  resolved: boolean;
+}
+
+export interface RyderCupPlayerTotal {
+  id: string;
+  label: string;
+  amount: number;
+}
+
+export interface RyderCupBetResult {
+  betId: string;
+  name: string;
+  teamAName: string;
+  teamBName: string;
+  teamAPoints: number;
+  teamBPoints: number;
+  matches: RyderCupMatchResult[];
+  // Every match across every segment has to be resolved before any money
+  // changes hands - a partial score doesn't pay out early the way, say,
+  // Skins pays out per-hole, since the buy-in is won or lost on the whole
+  // match, not hole by hole.
+  resolved: boolean;
+  totals: RyderCupPlayerTotal[];
+}
+
+export type RyderCupState = RyderCupBetResult[];
+
 export interface BirdiesPlayerTotal {
   id: string;
   label: string;
@@ -504,7 +600,7 @@ export interface BetCardRow {
 // whole distribution at once matters most.
 export interface BetCard {
   key: string;
-  category: 'Nassau' | 'Match Play' | 'Skins' | 'Stroke Play' | 'Birdies' | 'Doubles' | 'Wolf';
+  category: 'Nassau' | 'Match Play' | 'Skins' | 'Stroke Play' | 'Birdies' | 'Doubles' | 'Wolf' | 'Ryder Cup';
   title: string;
   isPot: boolean;
   rows: BetCardRow[];
@@ -896,6 +992,15 @@ interface RoundState {
   wolf: WolfState;
   wolfDecisions: Record<string, Record<number, WolfDecision>>;
 
+  // Ryder Cup bets, round-wide - see RyderCupBet. ryderCup is recomputed
+  // locally whenever groups (scores) or ryderCupBets change, same as
+  // every other bet type - ryderCupAltShotScores lives separately since it
+  // changes every hole while match config doesn't, same split as Wolf's
+  // own wolfDecisions.
+  ryderCupBets: RyderCupBet[];
+  ryderCup: RyderCupState;
+  ryderCupAltShotScores: Record<string, Record<string, { teamA: Record<number, number>; teamB: Record<number, number> }>>;
+
   // Stroke Play bets, round-wide - any number of independent pools (same
   // shape as Skins), settled on total score relative to par rather than
   // holes won. Only pays out once every entrant has finished the round.
@@ -1051,6 +1156,33 @@ interface RoundState {
   // clearWolfDecision is how a hole goes back to undecided).
   setWolfDecision: (betId: string, hole: number, partnerId: string | null) => Promise<void>;
   clearWolfDecision: (betId: string, hole: number) => Promise<void>;
+  createRyderCupBet: (name?: string) => Promise<string>;
+  renameRyderCupBet: (betId: string, name: string) => Promise<void>;
+  deleteRyderCupBet: (betId: string) => Promise<void>;
+  setRyderCupBuyIn: (betId: string, buyIn: number) => Promise<void>;
+  setRyderCupTeamName: (betId: string, side: 'A' | 'B', name: string) => Promise<void>;
+  // Adding a player is additive; removing one also drops any match on
+  // either segment that already had them slotted in - see the action's
+  // own comment for why a stale match can't just be left in place.
+  setPlayerInRyderCupTeam: (betId: string, side: 'A' | 'B', playerId: string, inTeam: boolean) => Promise<void>;
+  // Best Ball and Modified Alternate Shot are both pair-vs-pair, so they
+  // share this one action (segment picks which match list it lands in);
+  // Singles gets its own since it's a single player per side.
+  addPairMatch: (
+    betId: string,
+    segment: 'bestBall' | 'altShot',
+    teamAPlayerIds: [string, string],
+    teamBPlayerIds: [string, string]
+  ) => Promise<string>;
+  removePairMatch: (betId: string, segment: 'bestBall' | 'altShot', matchId: string) => Promise<void>;
+  addSinglesMatch: (betId: string, teamAPlayerId: string, teamBPlayerId: string) => Promise<string>;
+  removeSinglesMatch: (betId: string, matchId: string) => Promise<void>;
+  // Modified Alternate Shot is one shared ball per side, so it can't be
+  // derived from either partner's own individual hole score the way
+  // Best Ball's is - this is a genuinely separate score, entered once
+  // per side per hole for the match (see ryderCupAltShotScores).
+  setAltShotScore: (betId: string, matchId: string, side: 'A' | 'B', hole: number, score: number) => Promise<void>;
+  clearAltShotScore: (betId: string, matchId: string, side: 'A' | 'B', hole: number) => Promise<void>;
   createStrokePlayBet: (name?: string) => Promise<string>;
   renameStrokePlayBet: (betId: string, name: string) => Promise<void>;
   deleteStrokePlayBet: (betId: string) => Promise<void>;
@@ -1921,6 +2053,169 @@ function computeWolf(
   );
 }
 
+
+// One side's per-hole score sequence vs the other's, over a fixed-length
+// segment - the shared engine behind all three Ryder Cup formats (Best
+// Ball, Modified Alternate Shot, Singles all reduce to "two per-hole
+// score sequences, decide the match"), so none of them need their own
+// copy of the match-play/dormie logic. A null score at index i means
+// that hole hasn't been played by both sides yet - holes are assumed
+// played in order, so the first null just stops the match from
+// progressing any further rather than skipping ahead.
+function computeSegmentMatch(
+  scoresA: Array<number | null>,
+  scoresB: Array<number | null>,
+  requiredHoles: number
+): { pointsA: number; pointsB: number; holesPlayed: number; resolved: boolean } {
+  let diff = 0;
+  let holesPlayed = 0;
+  for (let i = 0; i < requiredHoles; i += 1) {
+    const a = scoresA[i];
+    const b = scoresB[i];
+    if (a == null || b == null) break;
+    holesPlayed += 1;
+    if (a < b) diff += 1;
+    else if (b < a) diff -= 1;
+    const remaining = requiredHoles - holesPlayed;
+    // Mathematically decided before every hole is played - e.g. 4 up
+    // with 3 to play - same "closed early" idea as Nassau's own segments.
+    if (Math.abs(diff) > remaining) break;
+  }
+  const remaining = requiredHoles - holesPlayed;
+  const resolved = holesPlayed === requiredHoles || Math.abs(diff) > remaining;
+  if (!resolved) return { pointsA: 0, pointsB: 0, holesPlayed, resolved: false };
+  if (diff > 0) return { pointsA: 1, pointsB: 0, holesPlayed, resolved: true };
+  if (diff < 0) return { pointsA: 0, pointsB: 1, holesPlayed, resolved: true };
+  return { pointsA: 0.5, pointsB: 0.5, holesPlayed, resolved: true };
+}
+
+function ryderCupPlayerName(players: Player[], id: string): string {
+  return players.find((player) => player.id === id)?.name ?? 'Player';
+}
+
+// Always net scoring (see RyderCupBet's own comment) - same simplification
+// Wolf makes, no per-bet toggle. Every match across all three segments
+// feeds one combined point total per side; money only moves once every
+// match is resolved (see RyderCupBetResult.resolved) since the buy-in is
+// won or lost on the whole thing, not hole by hole or segment by segment.
+function computeRyderCupForBet(
+  players: Player[],
+  netScores: HoleScores,
+  bet: RyderCupBet,
+  altShotScores: Record<string, { teamA: Record<number, number>; teamB: Record<number, number> }>
+): RyderCupBetResult {
+  const matches: RyderCupMatchResult[] = [];
+
+  for (const match of bet.bestBallMatches) {
+    const [start, end] = RYDER_CUP_SEGMENT_HOLES.bestBall;
+    const scoresA: Array<number | null> = [];
+    const scoresB: Array<number | null> = [];
+    for (let hole = start; hole <= end; hole += 1) {
+      const holeScores = netScores[hole];
+      const a1 = holeScores?.[match.teamAPlayerIds[0]];
+      const a2 = holeScores?.[match.teamAPlayerIds[1]];
+      const b1 = holeScores?.[match.teamBPlayerIds[0]];
+      const b2 = holeScores?.[match.teamBPlayerIds[1]];
+      scoresA.push(a1 != null && a2 != null ? Math.min(a1, a2) : null);
+      scoresB.push(b1 != null && b2 != null ? Math.min(b1, b2) : null);
+    }
+    const result = computeSegmentMatch(scoresA, scoresB, end - start + 1);
+    matches.push({
+      id: match.id,
+      segment: 'bestBall',
+      teamALabel: `${ryderCupPlayerName(players, match.teamAPlayerIds[0])} & ${ryderCupPlayerName(players, match.teamAPlayerIds[1])}`,
+      teamBLabel: `${ryderCupPlayerName(players, match.teamBPlayerIds[0])} & ${ryderCupPlayerName(players, match.teamBPlayerIds[1])}`,
+      ...result,
+    });
+  }
+
+  for (const match of bet.altShotMatches) {
+    const [start, end] = RYDER_CUP_SEGMENT_HOLES.altShot;
+    const scores = altShotScores[match.id];
+    const scoresA: Array<number | null> = [];
+    const scoresB: Array<number | null> = [];
+    for (let hole = start; hole <= end; hole += 1) {
+      scoresA.push(scores?.teamA[hole] ?? null);
+      scoresB.push(scores?.teamB[hole] ?? null);
+    }
+    const result = computeSegmentMatch(scoresA, scoresB, end - start + 1);
+    matches.push({
+      id: match.id,
+      segment: 'altShot',
+      teamALabel: `${ryderCupPlayerName(players, match.teamAPlayerIds[0])} & ${ryderCupPlayerName(players, match.teamAPlayerIds[1])}`,
+      teamBLabel: `${ryderCupPlayerName(players, match.teamBPlayerIds[0])} & ${ryderCupPlayerName(players, match.teamBPlayerIds[1])}`,
+      ...result,
+    });
+  }
+
+  for (const match of bet.singlesMatches) {
+    const [start, end] = RYDER_CUP_SEGMENT_HOLES.singles;
+    const scoresA: Array<number | null> = [];
+    const scoresB: Array<number | null> = [];
+    for (let hole = start; hole <= end; hole += 1) {
+      const holeScores = netScores[hole];
+      scoresA.push(holeScores?.[match.teamAPlayerId] ?? null);
+      scoresB.push(holeScores?.[match.teamBPlayerId] ?? null);
+    }
+    const result = computeSegmentMatch(scoresA, scoresB, end - start + 1);
+    matches.push({
+      id: match.id,
+      segment: 'singles',
+      teamALabel: ryderCupPlayerName(players, match.teamAPlayerId),
+      teamBLabel: ryderCupPlayerName(players, match.teamBPlayerId),
+      ...result,
+    });
+  }
+
+  const teamAPoints = matches.reduce((sum, m) => sum + m.pointsA, 0);
+  const teamBPoints = matches.reduce((sum, m) => sum + m.pointsB, 0);
+  // An empty bet (no matches configured yet) is never "resolved" - an
+  // empty list is vacuously "every match resolved" in JS, which would
+  // otherwise let a bet nobody's set up yet block round closure as if it
+  // were a real, finished match.
+  const resolved = matches.length > 0 && matches.every((m) => m.resolved);
+
+  let totals: RyderCupPlayerTotal[] = [];
+  if (resolved && bet.buyIn > 0 && (bet.teamAPlayerIds.length > 0 || bet.teamBPlayerIds.length > 0)) {
+    const allIds = [...bet.teamAPlayerIds, ...bet.teamBPlayerIds];
+    const pot = bet.buyIn * allIds.length;
+    if (teamAPoints === teamBPoints) {
+      // Overall tie - flat buy-in has nothing sensible to split, so this
+      // is a push: everyone just gets their own buy-in back.
+      totals = allIds.map((id) => ({ id, label: ryderCupPlayerName(players, id), amount: 0 }));
+    } else {
+      const winners = teamAPoints > teamBPoints ? bet.teamAPlayerIds : bet.teamBPlayerIds;
+      const losers = teamAPoints > teamBPoints ? bet.teamBPlayerIds : bet.teamAPlayerIds;
+      const perWinner = winners.length > 0 ? pot / winners.length - bet.buyIn : 0;
+      totals = [
+        ...winners.map((id) => ({ id, label: ryderCupPlayerName(players, id), amount: perWinner })),
+        ...losers.map((id) => ({ id, label: ryderCupPlayerName(players, id), amount: -bet.buyIn })),
+      ];
+    }
+  }
+
+  return {
+    betId: bet.id,
+    name: bet.name,
+    teamAName: bet.teamAName,
+    teamBName: bet.teamBName,
+    teamAPoints,
+    teamBPoints,
+    matches,
+    resolved,
+    totals,
+  };
+}
+
+function computeRyderCup(
+  players: Player[],
+  netScores: HoleScores,
+  bets: RyderCupBet[],
+  altShotScoresByBet: Record<string, Record<string, { teamA: Record<number, number>; teamB: Record<number, number> }>>
+): RyderCupState {
+  return bets.map((bet) => computeRyderCupForBet(players, netScores, bet, altShotScoresByBet[bet.id] ?? {}));
+}
+
 // Falls back to par 4 for a hole with no par recorded yet, matching how
 // the Scoring tab treats an unset par - so an incomplete scorecard never
 // makes a Stroke Play total read as raw strokes instead of relative to par.
@@ -2189,6 +2484,7 @@ export function allBetsClosed(
   birdies: BirdiesState,
   doubles: DoublesState,
   wolf: WolfState,
+  ryderCup: RyderCupState,
   totalHoles: number,
   nassauPressResults: NassauPressResult[]
 ): boolean {
@@ -2199,11 +2495,20 @@ export function allBetsClosed(
   const birdiesDone = birdies.every((bet) => bet.totals.length === 0 || bet.holesResolved >= totalHoles);
   const doublesDone = doubles.every((bet) => bet.totals.length === 0 || bet.holesResolved >= totalHoles);
   const wolfDone = wolf.every((bet) => bet.totals.length === 0 || bet.holesResolved >= totalHoles);
+  const ryderCupDone = ryderCup.every((bet) => bet.matches.length === 0 || bet.resolved);
   const pressesDone = nassauPressResults.every((press) =>
     isNassauSegmentResolved(press.state, press.endHole - press.startHole + 1)
   );
   return (
-    nassauDone && matchPlayDone && skinsDone && strokePlayDone && birdiesDone && doublesDone && wolfDone && pressesDone
+    nassauDone &&
+    matchPlayDone &&
+    skinsDone &&
+    strokePlayDone &&
+    birdiesDone &&
+    doublesDone &&
+    wolfDone &&
+    ryderCupDone &&
+    pressesDone
   );
 }
 
@@ -2297,6 +2602,8 @@ function computeSettlement(
   doublesBets: DoublesBet[],
   wolf: WolfState,
   wolfBets: WolfBet[],
+  ryderCup: RyderCupState,
+  ryderCupBets: RyderCupBet[],
   totalHoles: number
 ): { settlement: Settlement; betCards: BetCard[] } {
   const net = new Map<string, number>();
@@ -2471,6 +2778,21 @@ function computeSettlement(
     for (const total of bet.totals) {
       bump(total.id, total.amount, bet.name);
       recordCard(`wolf-${bet.betId}`, 'Wolf', bet.name, false, total.id, total.amount);
+    }
+  }
+
+  // Ryder Cup's per-player totals are already fully settled winner-take-
+  // all amounts (see computeRyderCupForBet) - nothing left to run a
+  // payout formula on here, same as Wolf just above. totals stays empty
+  // until every match in the bet has resolved, so a still-in-progress
+  // Ryder Cup bet simply contributes nothing yet - ryderCupBets itself
+  // isn't needed here (unlike wolfBets above) since computeRyderCupForBet
+  // already folded its config into each result.
+  for (const bet of ryderCup) {
+    if (bet.totals.length === 0) continue;
+    for (const total of bet.totals) {
+      bump(total.id, total.amount, bet.name);
+      recordCard(`ryderCup-${bet.betId}`, 'Ryder Cup', bet.name, false, total.id, total.amount);
     }
   }
 
@@ -2716,6 +3038,93 @@ function wolfDecisionsFromSnapshotValue(
   return result;
 }
 
+
+interface RyderCupMatchSnapshotValue {
+  teamA?: string[] | string;
+  teamB?: string[] | string;
+  scoresA?: Record<string, number> | null;
+  scoresB?: Record<string, number> | null;
+}
+
+interface RyderCupBetSnapshotValue {
+  name?: string;
+  teamAName?: string;
+  teamBName?: string;
+  buyIn?: number;
+  createdAt?: number;
+  teamA?: Record<string, boolean> | null;
+  teamB?: Record<string, boolean> | null;
+  bestBallMatches?: Record<string, RyderCupMatchSnapshotValue> | null;
+  altShotMatches?: Record<string, RyderCupMatchSnapshotValue> | null;
+  singlesMatches?: Record<string, RyderCupMatchSnapshotValue> | null;
+}
+
+function ryderCupPairMatchesFromSnapshotValue(
+  value: Record<string, RyderCupMatchSnapshotValue> | null | undefined
+): RyderCupPairMatch[] {
+  if (!value) return [];
+  return Object.entries(value)
+    .filter(([, m]) => Array.isArray(m.teamA) && m.teamA.length === 2 && Array.isArray(m.teamB) && m.teamB.length === 2)
+    .map(([id, m]) => ({
+      id,
+      teamAPlayerIds: [(m.teamA as string[])[0], (m.teamA as string[])[1]] as [string, string],
+      teamBPlayerIds: [(m.teamB as string[])[0], (m.teamB as string[])[1]] as [string, string],
+    }));
+}
+
+function ryderCupSinglesMatchesFromSnapshotValue(
+  value: Record<string, RyderCupMatchSnapshotValue> | null | undefined
+): RyderCupSinglesMatch[] {
+  if (!value) return [];
+  return Object.entries(value)
+    .filter(([, m]) => typeof m.teamA === 'string' && typeof m.teamB === 'string')
+    .map(([id, m]) => ({ id, teamAPlayerId: m.teamA as string, teamBPlayerId: m.teamB as string }));
+}
+
+function ryderCupBetsFromSnapshotValue(value: Record<string, RyderCupBetSnapshotValue> | null): RyderCupBet[] {
+  if (!value) return [];
+  return Object.entries(value)
+    .map(([id, b]) => ({
+      id,
+      name: b.name ?? 'Ryder Cup',
+      teamAName: b.teamAName ?? 'Team A',
+      teamBName: b.teamBName ?? 'Team B',
+      buyIn: b.buyIn ?? 0,
+      createdAt: b.createdAt ?? 0,
+      teamAPlayerIds: b.teamA ? Object.keys(b.teamA) : [],
+      teamBPlayerIds: b.teamB ? Object.keys(b.teamB) : [],
+      bestBallMatches: ryderCupPairMatchesFromSnapshotValue(b.bestBallMatches),
+      altShotMatches: ryderCupPairMatchesFromSnapshotValue(b.altShotMatches),
+      singlesMatches: ryderCupSinglesMatchesFromSnapshotValue(b.singlesMatches),
+    }))
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+// Parses the same raw rounds/{code}/ryderCupBets snapshot
+// ryderCupBetsFromSnapshotValue does, pulling out just the per-hole
+// Modified Alternate Shot scores - the two live in the same Firebase
+// node (see RyderCupMatchSnapshotValue) so one listener/one rules entry
+// covers both, same reasoning as Wolf's decisions.
+function ryderCupAltShotScoresFromSnapshotValue(
+  value: Record<string, RyderCupBetSnapshotValue> | null
+): Record<string, Record<string, { teamA: Record<number, number>; teamB: Record<number, number> }>> {
+  if (!value) return {};
+  const result: Record<string, Record<string, { teamA: Record<number, number>; teamB: Record<number, number> }>> = {};
+  for (const [betId, b] of Object.entries(value)) {
+    if (!b.altShotMatches) continue;
+    const byMatch: Record<string, { teamA: Record<number, number>; teamB: Record<number, number> }> = {};
+    for (const [matchId, m] of Object.entries(b.altShotMatches)) {
+      const teamA: Record<number, number> = {};
+      const teamB: Record<number, number> = {};
+      for (const [hole, score] of Object.entries(m.scoresA ?? {})) teamA[Number(hole)] = score;
+      for (const [hole, score] of Object.entries(m.scoresB ?? {})) teamB[Number(hole)] = score;
+      byMatch[matchId] = { teamA, teamB };
+    }
+    result[betId] = byMatch;
+  }
+  return result;
+}
+
 interface StrokePlaySnapshotValue {
   name?: string;
   net?: boolean;
@@ -2956,6 +3365,7 @@ let detachStrokePlayBetsListener: (() => void) | null = null;
 let detachBirdiesBetsListener: (() => void) | null = null;
 let detachDoublesBetsListener: (() => void) | null = null;
 let detachWolfBetsListener: (() => void) | null = null;
+let detachRyderCupBetsListener: (() => void) | null = null;
 let detachPayoutStatusListener: (() => void) | null = null;
 let detachSmackTalkListener: (() => void) | null = null;
 
@@ -3056,6 +3466,10 @@ function detachListeners() {
     detachWolfBetsListener();
     detachWolfBetsListener = null;
   }
+  if (detachRyderCupBetsListener) {
+    detachRyderCupBetsListener();
+    detachRyderCupBetsListener = null;
+  }
   if (detachPayoutStatusListener) {
     detachPayoutStatusListener();
     detachPayoutStatusListener = null;
@@ -3103,6 +3517,9 @@ export const useRoundState = create<RoundState>((set, get) => ({
   wolfBets: [],
   wolf: [],
   wolfDecisions: {},
+  ryderCupBets: [],
+  ryderCup: [],
+  ryderCupAltShotScores: {},
   strokePlayBets: [],
   strokePlay: [],
   birdiesBets: [],
@@ -3817,6 +4234,132 @@ export const useRoundState = create<RoundState>((set, get) => ({
     await dbRemove(ref(db, `rounds/${roundCode}/wolfBets/${betId}/decisions/${hole}`));
   },
 
+
+  // Ryder Cup bets live at the round level too - see RyderCupBet's own
+  // comment for the shape. Team rosters, match config, and alt-shot
+  // scores all live under one bet node so one Firebase rules entry
+  // covers everything, same reasoning as Wolf's decisions.
+  createRyderCupBet: async (name) => {
+    const { roundCode, ryderCupBets } = get();
+    if (!roundCode) throw new Error('Not in a round.');
+    const betRef = push(ref(db, `rounds/${roundCode}/ryderCupBets`));
+    const betId = betRef.key as string;
+    await dbSet(betRef, {
+      name: name?.trim() || `Ryder Cup ${ryderCupBets.length + 1}`,
+      teamAName: 'Team A',
+      teamBName: 'Team B',
+      buyIn: 0,
+      createdAt: Date.now(),
+    });
+    return betId;
+  },
+
+  renameRyderCupBet: async (betId, name) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/name`), name);
+  },
+
+  deleteRyderCupBet: async (betId) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbRemove(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}`));
+  },
+
+  setRyderCupBuyIn: async (betId, buyIn) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/buyIn`), buyIn);
+  },
+
+  setRyderCupTeamName: async (betId, side, name) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    const field = side === 'A' ? 'teamAName' : 'teamBName';
+    await dbSet(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/${field}`), name);
+  },
+
+  setPlayerInRyderCupTeam: async (betId, side, playerId, inTeam) => {
+    const { roundCode, ryderCupBets } = get();
+    if (!roundCode) return;
+    const field = side === 'A' ? 'teamA' : 'teamB';
+    const path = ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/${field}/${playerId}`);
+    if (inTeam) {
+      await dbSet(path, true);
+      return;
+    }
+    await dbRemove(path);
+    // A match can't reference a player who's no longer on the team that
+    // match is part of, so leaving one around would just be a silent,
+    // invisible bug the next time this bet gets recomputed - drop any
+    // match (on either side of it) that had this player.
+    const bet = ryderCupBets.find((b) => b.id === betId);
+    if (!bet) return;
+    const removals: Promise<void>[] = [];
+    for (const match of bet.bestBallMatches) {
+      if (match.teamAPlayerIds.includes(playerId) || match.teamBPlayerIds.includes(playerId)) {
+        removals.push(dbRemove(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/bestBallMatches/${match.id}`)));
+      }
+    }
+    for (const match of bet.altShotMatches) {
+      if (match.teamAPlayerIds.includes(playerId) || match.teamBPlayerIds.includes(playerId)) {
+        removals.push(dbRemove(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/altShotMatches/${match.id}`)));
+      }
+    }
+    for (const match of bet.singlesMatches) {
+      if (match.teamAPlayerId === playerId || match.teamBPlayerId === playerId) {
+        removals.push(dbRemove(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/singlesMatches/${match.id}`)));
+      }
+    }
+    await Promise.all(removals);
+  },
+
+  addPairMatch: async (betId, segment, teamAPlayerIds, teamBPlayerIds) => {
+    const { roundCode } = get();
+    if (!roundCode) throw new Error('Not in a round.');
+    const field = segment === 'bestBall' ? 'bestBallMatches' : 'altShotMatches';
+    const matchRef = push(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/${field}`));
+    const matchId = matchRef.key as string;
+    await dbSet(matchRef, { teamA: teamAPlayerIds, teamB: teamBPlayerIds });
+    return matchId;
+  },
+
+  removePairMatch: async (betId, segment, matchId) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    const field = segment === 'bestBall' ? 'bestBallMatches' : 'altShotMatches';
+    await dbRemove(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/${field}/${matchId}`));
+  },
+
+  addSinglesMatch: async (betId, teamAPlayerId, teamBPlayerId) => {
+    const { roundCode } = get();
+    if (!roundCode) throw new Error('Not in a round.');
+    const matchRef = push(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/singlesMatches`));
+    const matchId = matchRef.key as string;
+    await dbSet(matchRef, { teamA: teamAPlayerId, teamB: teamBPlayerId });
+    return matchId;
+  },
+
+  removeSinglesMatch: async (betId, matchId) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbRemove(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/singlesMatches/${matchId}`));
+  },
+
+  setAltShotScore: async (betId, matchId, side, hole, score) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    const field = side === 'A' ? 'scoresA' : 'scoresB';
+    await dbSet(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/altShotMatches/${matchId}/${field}/${hole}`), score);
+  },
+
+  clearAltShotScore: async (betId, matchId, side, hole) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    const field = side === 'A' ? 'scoresA' : 'scoresB';
+    await dbRemove(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/altShotMatches/${matchId}/${field}/${hole}`));
+  },
+
   // Stroke Play bets live at the round level too, same shape as Skins -
   // each is its own independent pool that can pull players from any tee
   // group, and a player can be opted into more than one at once.
@@ -4142,6 +4685,9 @@ export const useRoundState = create<RoundState>((set, get) => ({
       wolfBets: [],
       wolf: [],
       wolfDecisions: {},
+      ryderCupBets: [],
+      ryderCup: [],
+      ryderCupAltShotScores: {},
       strokePlayBets: [],
       strokePlay: [],
       birdiesBets: [],
@@ -4439,6 +4985,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
         birdiesBets?: unknown;
         doublesBets?: unknown;
         wolfBets?: unknown;
+        ryderCupBets?: unknown;
         payoutStatus?: Record<string, Partial<PayoutStatusEntry> | undefined>;
       } | null;
 
@@ -4482,6 +5029,10 @@ export const useRoundState = create<RoundState>((set, get) => ({
       const wolfBets = wolfBetsFromSnapshotValue(value?.wolfBets as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const wolfDecisions = wolfDecisionsFromSnapshotValue(value?.wolfBets as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ryderCupBets = ryderCupBetsFromSnapshotValue(value?.ryderCupBets as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ryderCupAltShotScores = ryderCupAltShotScoresFromSnapshotValue(value?.ryderCupBets as any);
 
       const payoutStatusRaw = value?.payoutStatus ?? {};
       const payoutStatus: Record<string, PayoutStatusEntry> = {};
@@ -4531,6 +5082,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
       const birdies = computeBirdies(allPlayers, grossScores, netScores, holes, birdiesBets, totalHoles);
       const doubles = computeDoubles(allPlayers, grossScores, netScores, holes, doublesBets, totalHoles);
       const wolf = computeWolf(allPlayers, netScores, wolfBets, wolfDecisions, totalHoles);
+      const ryderCup = computeRyderCup(allPlayers, netScores, ryderCupBets, ryderCupAltShotScores);
       const { settlement, betCards } = computeSettlement(
         allPlayers,
         nassau,
@@ -4548,6 +5100,8 @@ export const useRoundState = create<RoundState>((set, get) => ({
         doublesBets,
         wolf,
         wolfBets,
+        ryderCup,
+        ryderCupBets,
         totalHoles
       );
 
@@ -4721,6 +5275,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
     const birdiesBetsRef = ref(db, `rounds/${code}/birdiesBets`);
     const doublesBetsRef = ref(db, `rounds/${code}/doublesBets`);
     const wolfBetsRef = ref(db, `rounds/${code}/wolfBets`);
+    const ryderCupBetsRef = ref(db, `rounds/${code}/ryderCupBets`);
     const payoutStatusRef = ref(db, `rounds/${code}/payoutStatus`);
     const smackTalkRef = ref(db, `rounds/${code}/smackTalk`);
     // Only stickers sent after this device subscribed should ever pop up -
@@ -4788,6 +5343,8 @@ export const useRoundState = create<RoundState>((set, get) => ({
         doublesBets,
         wolfBets,
         wolfDecisions,
+        ryderCupBets,
+        ryderCupAltShotScores,
         handicaps,
         holes,
         totalHoles,
@@ -4831,6 +5388,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
       const birdies = computeBirdies(allPlayers, grossScores, netScores, holes, birdiesBets, totalHoles);
       const doubles = computeDoubles(allPlayers, grossScores, netScores, holes, doublesBets, totalHoles);
       const wolf = computeWolf(allPlayers, netScores, wolfBets, wolfDecisions, totalHoles);
+      const ryderCup = computeRyderCup(allPlayers, netScores, ryderCupBets, ryderCupAltShotScores);
       const { settlement, betCards } = computeSettlement(
         allPlayers,
         nassau,
@@ -4848,15 +5406,31 @@ export const useRoundState = create<RoundState>((set, get) => ({
         doublesBets,
         wolf,
         wolfBets,
+        ryderCup,
+        ryderCupBets,
         totalHoles
       );
-      set({ nassau, nassauPressResults, matchPlay, skins, strokePlay, birdies, doubles, wolf, settlement, betCards });
+      set({
+        nassau,
+        nassauPressResults,
+        matchPlay,
+        skins,
+        strokePlay,
+        birdies,
+        doubles,
+        wolf,
+        ryderCup,
+        settlement,
+        betCards,
+      });
 
       // Once every bet is closed, record this device's own result to its
       // own private history - harmless to re-run on every recompute while
       // closed stays true, since a listener only fires when the underlying
       // data actually changes, not on a timer.
-      if (allBetsClosed(nassau, matchPlay, skins, strokePlay, birdies, doubles, wolf, totalHoles, nassauPressResults)) {
+      if (
+        allBetsClosed(nassau, matchPlay, skins, strokePlay, birdies, doubles, wolf, ryderCup, totalHoles, nassauPressResults)
+      ) {
         void recordHistoryEntry(code, uid, createdAt, courseName, totalHoles, allPlayers, settlement, betCards);
         void recordRegulars(uid, allPlayers, handicaps);
       }
@@ -5022,6 +5596,16 @@ export const useRoundState = create<RoundState>((set, get) => ({
       set({
         wolfBets: wolfBetsFromSnapshotValue(value),
         wolfDecisions: wolfDecisionsFromSnapshotValue(value),
+      });
+      recomputeAll();
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    detachRyderCupBetsListener = onValue(ryderCupBetsRef, (snapshot) => {
+      const value = snapshot.val() as any;
+      set({
+        ryderCupBets: ryderCupBetsFromSnapshotValue(value),
+        ryderCupAltShotScores: ryderCupAltShotScoresFromSnapshotValue(value),
       });
       recomputeAll();
     });
