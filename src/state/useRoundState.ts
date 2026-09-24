@@ -3736,6 +3736,20 @@ export const useRoundState = create<RoundState>((set, get) => ({
         strokePlayBets?: Record<string, { players?: Record<string, true> }>;
         birdiesBets?: Record<string, { players?: Record<string, true> }>;
         doublesBets?: Record<string, { players?: Record<string, true> }>;
+        wolfBets?: Record<
+          string,
+          { players?: Record<string, number>; decisions?: Record<string, { partnerId?: string }> }
+        >;
+        ryderCupBets?: Record<
+          string,
+          {
+            teamA?: Record<string, true>;
+            teamB?: Record<string, true>;
+            bestBallMatches?: Record<string, { teamA?: string[]; teamB?: string[] }>;
+            altShotMatches?: Record<string, { teamA?: string[]; teamB?: string[] }>;
+            singlesMatches?: Record<string, { teamA?: string; teamB?: string }>;
+          }
+        >;
       };
 
       const ghost = value.groups?.[groupId]?.players?.[ghostPlayerId];
@@ -3799,6 +3813,48 @@ export const useRoundState = create<RoundState>((set, get) => ({
             updates[`${base}/${betPath}/${betId}/players/${ghostPlayerId}`] = null;
             updates[`${base}/${betPath}/${betId}/players/${uid}`] = true;
           }
+        }
+      }
+
+      for (const [betId, bet] of Object.entries(value.wolfBets ?? {})) {
+        const order = bet.players?.[ghostPlayerId];
+        if (order != null) {
+          updates[`${base}/wolfBets/${betId}/players/${ghostPlayerId}`] = null;
+          updates[`${base}/wolfBets/${betId}/players/${uid}`] = order;
+        }
+        for (const [hole, decision] of Object.entries(bet.decisions ?? {})) {
+          if (decision.partnerId === ghostPlayerId) {
+            updates[`${base}/wolfBets/${betId}/decisions/${hole}/partnerId`] = uid;
+          }
+        }
+      }
+
+      for (const [betId, bet] of Object.entries(value.ryderCupBets ?? {})) {
+        if (bet.teamA?.[ghostPlayerId]) {
+          updates[`${base}/ryderCupBets/${betId}/teamA/${ghostPlayerId}`] = null;
+          updates[`${base}/ryderCupBets/${betId}/teamA/${uid}`] = true;
+        }
+        if (bet.teamB?.[ghostPlayerId]) {
+          updates[`${base}/ryderCupBets/${betId}/teamB/${ghostPlayerId}`] = null;
+          updates[`${base}/ryderCupBets/${betId}/teamB/${uid}`] = true;
+        }
+        const pairMatchFields: Array<'bestBallMatches' | 'altShotMatches'> = ['bestBallMatches', 'altShotMatches'];
+        for (const field of pairMatchFields) {
+          for (const [matchId, match] of Object.entries(bet[field] ?? {})) {
+            (['teamA', 'teamB'] as const).forEach((side) => {
+              const index = match[side]?.indexOf(ghostPlayerId) ?? -1;
+              if (index !== -1) {
+                updates[`${base}/ryderCupBets/${betId}/${field}/${matchId}/${side}/${index}`] = uid;
+              }
+            });
+          }
+        }
+        for (const [matchId, match] of Object.entries(bet.singlesMatches ?? {})) {
+          (['teamA', 'teamB'] as const).forEach((side) => {
+            if (match[side] === ghostPlayerId) {
+              updates[`${base}/ryderCupBets/${betId}/singlesMatches/${matchId}/${side}`] = uid;
+            }
+          });
         }
       }
 
