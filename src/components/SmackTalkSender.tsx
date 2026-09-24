@@ -14,7 +14,6 @@ const MAX_LENGTH = 40;
 // tested with, so it stays in the list.
 const PRESETS = [
   'Cinderella story',
-  'Be the ball',
   "You're gonna eat it",
   "That'll play",
   'Nice shank',
