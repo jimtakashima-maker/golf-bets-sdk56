@@ -166,9 +166,12 @@ const styles = StyleSheet.create({
   },
   linkRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignSelf: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 8,
+    rowGap: 4,
   },
   linkButton: {
     paddingVertical: 8,

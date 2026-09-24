@@ -136,14 +136,22 @@ function LeaderboardBoard({
       <View style={styles.boardHeaderRow}>
         <Text style={[styles.boardHeaderText, styles.boardPos]}>POS</Text>
         <Text style={[styles.boardHeaderText, styles.boardName]}>PLAYER</Text>
-        <Text style={[styles.boardHeaderText, styles.boardThru]}>THRU</Text>
+        <Text style={[styles.boardHeaderText, styles.boardThru]} numberOfLines={1}>
+          THRU
+        </Text>
         {showNetColumn ? (
           <>
-            <Text style={[styles.boardHeaderText, styles.boardScoreSplit]}>GROSS</Text>
-            <Text style={[styles.boardHeaderText, styles.boardScoreSplit]}>NET</Text>
+            <Text style={[styles.boardHeaderText, styles.boardScoreSplit]} numberOfLines={1}>
+              GROSS
+            </Text>
+            <Text style={[styles.boardHeaderText, styles.boardScoreSplit]} numberOfLines={1}>
+              NET
+            </Text>
           </>
         ) : (
-          <Text style={[styles.boardHeaderText, styles.boardScore]}>SCORE</Text>
+          <Text style={[styles.boardHeaderText, styles.boardScore]} numberOfLines={1}>
+            SCORE
+          </Text>
         )}
       </View>
       {ranked.map((player, index) => {
@@ -333,7 +341,7 @@ const styles = StyleSheet.create({
     color: '#1c2b22',
   },
   boardThru: {
-    width: 40,
+    width: 46,
     alignItems: 'center',
   },
   boardThruText: {
@@ -347,7 +355,7 @@ const styles = StyleSheet.create({
   // Half-width GROSS/NET pair used instead of boardScore when a net bet
   // is active - two numbers in roughly the space one used to take.
   boardScoreSplit: {
-    width: 40,
+    width: 46,
   },
   boardScoreText: {
     fontSize: 15,
