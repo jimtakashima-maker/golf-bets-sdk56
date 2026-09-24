@@ -9,6 +9,7 @@ import ScanScorecardScreen from './src/screens/ScanScorecardScreen';
 import RoundScreen from './src/screens/RoundScreen';
 import MyHistoryScreen from './src/screens/MyHistoryScreen';
 import MyStatsScreen from './src/screens/MyStatsScreen';
+import SmackTalkOverlay from './src/components/SmackTalkOverlay';
 import RoundDetailScreen from './src/screens/RoundDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AdminScreen from './src/screens/AdminScreen';
@@ -48,7 +49,11 @@ function extractRoundCode(url: string): string | null {
   return queryMatch ? decodeURIComponent(queryMatch[1]).toUpperCase() : null;
 }
 
-export default function App() {
+// Everything below is the actual app - screen routing, resume-round
+// logic, all of it. It's named AppInner (not the default export) so the
+// smack-talk overlay can sit as a sibling to it, in the wrapper below,
+// instead of needing every early `return` above to remember to render it.
+function AppInner() {
   // The app always opens on the profile screen first, so a display name
   // and handicap get confirmed (or corrected) before a round can be
   // created or joined - see ProfileScreen's onContinue ("gate") mode.
@@ -245,5 +250,17 @@ export default function App() {
       resumeError={resumeError}
       onResume={handleResume}
     />
+  );
+}
+
+// The default export: the real app, plus the smack-talk overlay as a
+// sibling so a sticker can take over the screen no matter which branch
+// of AppInner is currently rendering.
+export default function App() {
+  return (
+    <>
+      <AppInner />
+      <SmackTalkOverlay />
+    </>
   );
 }

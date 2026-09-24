@@ -113,6 +113,12 @@
               ".write": "auth != null && $txId.endsWith('_' + auth.uid)"
             }
           }
+        },
+        "smackTalk": {
+          "$smackId": {
+            ".write": "auth != null && !data.exists()",
+            ".validate": "newData.hasChildren(['text','senderId','senderName','sentAt']) && newData.child('senderId').val() == auth.uid && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 40"
+          }
         }
       }
     },

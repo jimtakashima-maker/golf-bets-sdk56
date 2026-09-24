@@ -14,6 +14,7 @@ import {
 } from '../state/useRoundState';
 import ScoreEntry from '../components/ScoreEntry';
 import MyStatsEntry from '../components/MyStatsEntry';
+import SmackTalkSender from '../components/SmackTalkSender';
 import NassauPressPanel from '../components/NassauPressPanel';
 
 export default function ScoreScreen() {
@@ -40,6 +41,7 @@ export default function ScoreScreen() {
   const callNassauPress = useRoundState((state) => state.callNassauPress);
 
   const [scorecardOpen, setScorecardOpen] = useState(false);
+  const [smackTalkOpen, setSmackTalkOpen] = useState(false);
 
   // Hosts can score (or correct) any tee group, not just their own - useful
   // for testing and for fixing a mistake without borrowing someone else's
@@ -162,9 +164,14 @@ export default function ScoreScreen() {
           onCallPress={callNassauPress}
         />
 
-        <Pressable style={styles.scorecardButton} onPress={() => setScorecardOpen(true)}>
-          <Text style={styles.scorecardButtonText}>View Scorecard</Text>
-        </Pressable>
+        <View style={styles.topButtonRow}>
+          <Pressable style={styles.scorecardButton} onPress={() => setScorecardOpen(true)}>
+            <Text style={styles.scorecardButtonText}>View Scorecard</Text>
+          </Pressable>
+          <Pressable style={styles.smackTalkButton} onPress={() => setSmackTalkOpen(true)}>
+            <Text style={styles.smackTalkButtonText}>Talk Trash</Text>
+          </Pressable>
+        </View>
 
         <Text style={styles.holeHeading}>Hole {currentHole}</Text>
         {holes[currentHole] && (
@@ -241,6 +248,8 @@ export default function ScoreScreen() {
         onFillScore={enterScore}
         adjustedHandicaps={adjustedHandicaps}
       />
+
+      <SmackTalkSender visible={smackTalkOpen} onClose={() => setSmackTalkOpen(false)} />
     </View>
   );
 }
@@ -705,14 +714,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#234',
   },
+  topButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
   scorecardButton: {
-    alignSelf: 'center',
     borderWidth: 1,
     borderColor: '#1a7f37',
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    marginBottom: 12,
+  },
+  smackTalkButton: {
+    borderWidth: 1,
+    borderColor: '#c0392b',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  smackTalkButtonText: {
+    color: '#c0392b',
+    fontWeight: '600',
+    fontSize: 13,
   },
   scorecardButtonText: {
     color: '#1a7f37',

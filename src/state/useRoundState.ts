@@ -6,6 +6,7 @@ import {
   get as dbGet,
   push,
   onValue,
+  onChildAdded,
   remove as dbRemove,
 } from '@firebase/database';
 import { db, auth, ensureSignedIn } from '../lib/firebase';
@@ -730,6 +731,17 @@ export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error';
 // retroactively gated.
 export type RoundStatus = 'prep' | 'active';
 
+// One smack-talk sticker someone else in the round just sent - shown as a
+// full-screen overlay on every other device (see sendSmackTalk and the
+// onChildAdded listener in _subscribeToRound). id is the Firebase push key,
+// used so the same sticker is never shown twice on one device.
+export interface IncomingSmackTalk {
+  id: string;
+  text: string;
+  senderName: string;
+  sentAt: number;
+}
+
 interface RoundState {
   // Local identity for the round/group this device is in, once joined.
   roundCode: string | null;
@@ -900,6 +912,16 @@ interface RoundState {
   // a par 3, where the stat doesn't apply). Private to this player - see
   // setHoleStat's own comment for how it's stored and how gir is derived.
   setHoleStat: (holeNumber: number, fairway: FairwayResult | null, putts: number | null) => Promise<void>;
+  // The most recent smack-talk sticker sent by someone else in the round
+  // that this device hasn't dismissed yet - null when there's nothing to
+  // show. See sendSmackTalk/clearSmackTalk.
+  incomingSmackTalk: IncomingSmackTalk | null;
+  // Broadcasts a sticker to every other device in the round - see the
+  // onChildAdded listener in _subscribeToRound for the receiving side.
+  sendSmackTalk: (text: string) => Promise<void>;
+  // Dismisses the currently showing sticker, if any - called by the
+  // overlay once it's done animating, or when the player taps it away.
+  clearSmackTalk: () => void;
   setHoles: (holes: HolesInfo) => Promise<void>;
   submitGroupScores: (groupId: string) => Promise<void>;
   renameGroup: (groupId: string, name: string) => Promise<void>;
@@ -2631,6 +2653,7 @@ let detachStrokePlayBetsListener: (() => void) | null = null;
 let detachBirdiesBetsListener: (() => void) | null = null;
 let detachDoublesBetsListener: (() => void) | null = null;
 let detachPayoutStatusListener: (() => void) | null = null;
+let detachSmackTalkListener: (() => void) | null = null;
 
 function detachListeners() {
   if (detachHolesListener) {
@@ -2729,6 +2752,10 @@ function detachListeners() {
     detachPayoutStatusListener();
     detachPayoutStatusListener = null;
   }
+  if (detachSmackTalkListener) {
+    detachSmackTalkListener();
+    detachSmackTalkListener = null;
+  }
 }
 
 // ---------- Store ----------
@@ -2785,6 +2812,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
   courses: [],
   history: [],
   myHoleStats: {},
+  incomingSmackTalk: null,
   regulars: [],
   paymentHandles: null,
   paymentHandlesByUid: {},
@@ -3177,6 +3205,19 @@ export const useRoundState = create<RoundState>((set, get) => ({
       // Best-effort, same as recordHistoryEntry - never blocks the round.
     }
   },
+
+  sendSmackTalk: async (text) => {
+    const trimmed = text.trim().slice(0, 40);
+    const { roundCode, playerId, groups } = get();
+    const uid = auth.currentUser?.uid;
+    if (!roundCode || !playerId || !uid || trimmed.length === 0) return;
+    const me = groups.flatMap((group) => group.players).find((player) => player.id === playerId);
+    const senderName = me?.name ?? 'Someone';
+    const smackTalkRef = push(ref(db, `rounds/${roundCode}/smackTalk`));
+    await dbSet(smackTalkRef, { text: trimmed, senderId: uid, senderName, sentAt: Date.now() });
+  },
+
+  clearSmackTalk: () => set({ incomingSmackTalk: null }),
 
   setHoles: async (holes) => {
     const { roundCode } = get();
@@ -3724,6 +3765,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
       payoutStatus: {},
       paymentHandlesByUid: {},
       myHoleStats: {},
+      incomingSmackTalk: null,
     });
   },
 
@@ -4278,6 +4320,11 @@ export const useRoundState = create<RoundState>((set, get) => ({
     const birdiesBetsRef = ref(db, `rounds/${code}/birdiesBets`);
     const doublesBetsRef = ref(db, `rounds/${code}/doublesBets`);
     const payoutStatusRef = ref(db, `rounds/${code}/payoutStatus`);
+    const smackTalkRef = ref(db, `rounds/${code}/smackTalk`);
+    // Only stickers sent after this device subscribed should ever pop up -
+    // onChildAdded otherwise replays the round's whole smack-talk history
+    // the moment a device (re)joins.
+    const subscribedAt = Date.now();
 
     // hostId and createdAt never change after round creation, so a
     // one-time read is enough for both - no need for a live listener like
@@ -4287,6 +4334,22 @@ export const useRoundState = create<RoundState>((set, get) => ({
     });
     void dbGet(ref(db, `rounds/${code}/createdAt`)).then((snapshot) => {
       set({ createdAt: snapshot.val() ?? null });
+    });
+
+    // Broadcasts from every device in the round, including other tee
+    // groups - never shown back to whoever sent it.
+    detachSmackTalkListener = onChildAdded(smackTalkRef, (snapshot) => {
+      const value = snapshot.val() as { text?: string; senderId?: string; senderName?: string; sentAt?: number } | null;
+      if (!value || value.sentAt == null || value.sentAt <= subscribedAt) return;
+      if (value.senderId === uid) return;
+      set({
+        incomingSmackTalk: {
+          id: snapshot.key ?? String(value.sentAt),
+          text: value.text ?? '',
+          senderName: value.senderName ?? 'Someone',
+          sentAt: value.sentAt,
+        },
+      });
     });
 
     // This player's own fairway/putts stats for the round so far - private
