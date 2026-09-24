@@ -33,6 +33,12 @@ export default function ScoreScreen() {
   const holes = useRoundState((state) => state.holes);
   const nassau = useRoundState((state) => state.nassau);
   const matchPlay = useRoundState((state) => state.matchPlay);
+  const teams = useRoundState((state) => state.teams);
+  const matchPlayTeams = useRoundState((state) => state.matchPlayTeams);
+  const skinsBets = useRoundState((state) => state.skinsBets);
+  const strokePlayBets = useRoundState((state) => state.strokePlayBets);
+  const birdiesBets = useRoundState((state) => state.birdiesBets);
+  const doublesBets = useRoundState((state) => state.doublesBets);
   const handicaps = useRoundState((state) => state.handicaps);
   const nassauPressResults = useRoundState((state) => state.nassauPressResults);
   const nassauPressStacking = useRoundState((state) => state.nassauPressStacking);
@@ -107,6 +113,17 @@ export default function ScoreScreen() {
   );
 
   const [altShotStart, altShotEnd] = RYDER_CUP_SEGMENT_HOLES.altShot;
+  const ryderCupIsOnlyBetActive =
+    ryderCupBets.length > 0 &&
+    teams.length === 0 &&
+    matchPlayTeams.length === 0 &&
+    skinsBets.length === 0 &&
+    strokePlayBets.length === 0 &&
+    birdiesBets.length === 0 &&
+    doublesBets.length === 0 &&
+    wolfBets.length === 0;
+  const hideIndividualScores =
+    ryderCupIsOnlyBetActive && currentHole >= altShotStart && currentHole <= altShotEnd;
   const activeGroupRyderCupAltShotMatches =
     currentHole >= altShotStart && currentHole <= altShotEnd
       ? ryderCupBets.flatMap((bet) =>
@@ -218,15 +235,17 @@ export default function ScoreScreen() {
           </Text>
         )}
 
-        <ScoreEntry
-          players={players}
-          currentHole={currentHole}
-          scores={scores[currentHole]}
-          par={par}
-          adjustedHandicaps={adjustedHandicaps}
-          strokeIndex={currentStrokeIndex}
-          onEnterScore={(playerId, strokes) => enterScore(currentHole, playerId, strokes)}
-        />
+        {!hideIndividualScores && (
+          <ScoreEntry
+            players={players}
+            currentHole={currentHole}
+            scores={scores[currentHole]}
+            par={par}
+            adjustedHandicaps={adjustedHandicaps}
+            strokeIndex={currentStrokeIndex}
+            onEnterScore={(playerId, strokes) => enterScore(currentHole, playerId, strokes)}
+          />
+        )}
 
         {activeGroupWolfBets.map((bet) => (
           <WolfDecisionCard
