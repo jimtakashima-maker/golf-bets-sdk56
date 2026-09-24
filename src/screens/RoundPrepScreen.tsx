@@ -1413,223 +1413,301 @@ function BetSettings({
     else onSetPlayerInDoublesBet(rosterModal.betId, playerId, inBet);
   };
 
+  // Whether at least one of the six game types still has nothing set up -
+  // drives whether the "Add a game" picker shows at all. A type drops out
+  // of this picker the moment it has its first team/bet (created either
+  // from here or, for extra teams/bets of a type already added, from that
+  // section's own "+ New ..." row) and comes back if its last one is
+  // deleted.
+  const hasMoreGamesToAdd =
+    teams.length === 0 ||
+    matchPlayTeams.length === 0 ||
+    skinsBets.length === 0 ||
+    strokePlayBets.length === 0 ||
+    birdiesBets.length === 0 ||
+    doublesBets.length === 0;
+
   return (
     <View style={styles.settingsContainer}>
-      <SectionHeader
-        title="Nassau"
-        open={nassauOpen}
-        onToggle={() => setNassauOpen((prev) => !prev)}
-        summary={teams.length > 0 ? `${teams.length} team${teams.length === 1 ? '' : 's'}` : 'Not used'}
-        rightExtra={<StakesUnitToggle unit={nassauStakesUnit} onChange={setNassauStakesUnit} />}
-      />
-      {nassauOpen && (
-        <>
-          <NassauSettings
-            net={nassauNet}
-            amounts={nassauAmounts}
-            onSetNet={onSetNassauNet}
-            onSetAmount={onSetNassauAmount}
-            totalHoles={totalHoles}
-            autoPress={nassauAutoPress}
-            pressStacking={nassauPressStacking}
-            onSetAutoPress={onSetNassauAutoPress}
-            onSetPressStacking={onSetNassauPressStacking}
-            unit={nassauStakesUnit}
+      {hasMoreGamesToAdd && (
+        <View style={styles.gamePicker}>
+          <Text style={styles.gamePickerLabel}>Add a game</Text>
+          <View style={styles.gamePickerRow}>
+            {teams.length === 0 && (
+              <Pressable style={styles.gamePickerChip} onPress={onCreateTeam}>
+                <Text style={styles.gamePickerChipText}>+ Nassau</Text>
+              </Pressable>
+            )}
+            {matchPlayTeams.length === 0 && (
+              <Pressable style={styles.gamePickerChip} onPress={onCreateMatchPlayTeam}>
+                <Text style={styles.gamePickerChipText}>+ Match Play</Text>
+              </Pressable>
+            )}
+            {skinsBets.length === 0 && (
+              <Pressable style={styles.gamePickerChip} onPress={onCreateSkinsBet}>
+                <Text style={styles.gamePickerChipText}>+ Skins</Text>
+              </Pressable>
+            )}
+            {strokePlayBets.length === 0 && (
+              <Pressable style={styles.gamePickerChip} onPress={onCreateStrokePlayBet}>
+                <Text style={styles.gamePickerChipText}>+ Stroke Play</Text>
+              </Pressable>
+            )}
+            {birdiesBets.length === 0 && (
+              <Pressable style={styles.gamePickerChip} onPress={onCreateBirdiesBet}>
+                <Text style={styles.gamePickerChipText}>+ Birdies</Text>
+              </Pressable>
+            )}
+            {doublesBets.length === 0 && (
+              <Pressable style={styles.gamePickerChip} onPress={onCreateDoublesBet}>
+                <Text style={styles.gamePickerChipText}>+ Doubles</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      )}
+
+      {teams.length > 0 && (
+        <View style={styles.betCardPrimary}>
+          <SectionHeader
+            tone="primary"
+            title="Nassau"
+            open={nassauOpen}
+            onToggle={() => setNassauOpen((prev) => !prev)}
+            summary={`${teams.length} team${teams.length === 1 ? '' : 's'}`}
+            rightExtra={<StakesUnitToggle unit={nassauStakesUnit} onChange={setNassauStakesUnit} />}
           />
-          {teams.map((team) => (
-            <NassauTeamRow
-              key={team.id}
-              team={team}
-              membersLabel={describeTeamMembers(team.id, playerTeams, allPlayers)}
-              onRename={(name) => onRenameTeam(team.id, name)}
-              onDelete={() => onDeleteTeam(team.id)}
-              amIOnTeam={playerId != null && playerTeams[playerId] === team.id}
-              onToggleMe={
-                playerId &&
-                (playerTeams[playerId] === team.id ||
-                  nassauTeamAcceptsPlayer(team.id, playerId, playerTeams, groups))
-                  ? () => onSetPlayerTeam(playerId, playerTeams[playerId] === team.id ? null : team.id)
-                  : undefined
-              }
-            />
-          ))}
-          <Pressable style={styles.settingsAddRow} onPress={onCreateTeam}>
-            <Text style={styles.settingsAddRowText}>+ New Team</Text>
-          </Pressable>
-        </>
+          {nassauOpen && (
+            <View style={styles.betCardBody}>
+              <NassauSettings
+                net={nassauNet}
+                amounts={nassauAmounts}
+                onSetNet={onSetNassauNet}
+                onSetAmount={onSetNassauAmount}
+                totalHoles={totalHoles}
+                autoPress={nassauAutoPress}
+                pressStacking={nassauPressStacking}
+                onSetAutoPress={onSetNassauAutoPress}
+                onSetPressStacking={onSetNassauPressStacking}
+                unit={nassauStakesUnit}
+              />
+              {teams.map((team) => (
+                <NassauTeamRow
+                  key={team.id}
+                  team={team}
+                  membersLabel={describeTeamMembers(team.id, playerTeams, allPlayers)}
+                  onRename={(name) => onRenameTeam(team.id, name)}
+                  onDelete={() => onDeleteTeam(team.id)}
+                  amIOnTeam={playerId != null && playerTeams[playerId] === team.id}
+                  onToggleMe={
+                    playerId &&
+                    (playerTeams[playerId] === team.id ||
+                      nassauTeamAcceptsPlayer(team.id, playerId, playerTeams, groups))
+                      ? () => onSetPlayerTeam(playerId, playerTeams[playerId] === team.id ? null : team.id)
+                      : undefined
+                  }
+                />
+              ))}
+              <Pressable style={styles.settingsAddRow} onPress={onCreateTeam}>
+                <Text style={styles.settingsAddRowText}>+ New Team</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
       )}
 
-      <SectionHeader
-        title="Match Play"
-        open={matchPlayOpen}
-        onToggle={() => setMatchPlayOpen((prev) => !prev)}
-        summary={
-          matchPlayTeams.length > 0 ? `${matchPlayTeams.length} team${matchPlayTeams.length === 1 ? '' : 's'}` : 'Not used'
-        }
-        rightExtra={<StakesUnitToggle unit={matchPlayStakesUnit} onChange={setMatchPlayStakesUnit} />}
-      />
-      {matchPlayOpen && (
-        <>
-          <NassauSettings
-            net={matchPlayNet}
-            amounts={matchPlayAmounts}
-            onSetNet={onSetMatchPlayNet}
-            onSetAmount={onSetMatchPlayAmount}
-            totalHoles={totalHoles}
-            unit={matchPlayStakesUnit}
+      {matchPlayTeams.length > 0 && (
+        <View style={styles.betCardPrimary}>
+          <SectionHeader
+            tone="primary"
+            title="Match Play"
+            open={matchPlayOpen}
+            onToggle={() => setMatchPlayOpen((prev) => !prev)}
+            summary={`${matchPlayTeams.length} team${matchPlayTeams.length === 1 ? '' : 's'}`}
+            rightExtra={<StakesUnitToggle unit={matchPlayStakesUnit} onChange={setMatchPlayStakesUnit} />}
           />
-          {matchPlayTeams.map((team) => (
-            <NassauTeamRow
-              key={team.id}
-              team={team}
-              membersLabel={describeTeamMembers(team.id, matchPlayPlayerTeams, allPlayers)}
-              onRename={(name) => onRenameMatchPlayTeam(team.id, name)}
-              onDelete={() => onDeleteMatchPlayTeam(team.id)}
-              amIOnTeam={playerId != null && matchPlayPlayerTeams[playerId] === team.id}
-              onToggleMe={
-                playerId
-                  ? () =>
-                      onSetMatchPlayPlayerTeam(
-                        playerId,
-                        matchPlayPlayerTeams[playerId] === team.id ? null : team.id,
-                      )
-                  : undefined
-              }
-            />
-          ))}
-          <Pressable style={styles.settingsAddRow} onPress={onCreateMatchPlayTeam}>
-            <Text style={styles.settingsAddRowText}>+ New Team</Text>
-          </Pressable>
-        </>
+          {matchPlayOpen && (
+            <View style={styles.betCardBody}>
+              <NassauSettings
+                net={matchPlayNet}
+                amounts={matchPlayAmounts}
+                onSetNet={onSetMatchPlayNet}
+                onSetAmount={onSetMatchPlayAmount}
+                totalHoles={totalHoles}
+                unit={matchPlayStakesUnit}
+              />
+              {matchPlayTeams.map((team) => (
+                <NassauTeamRow
+                  key={team.id}
+                  team={team}
+                  membersLabel={describeTeamMembers(team.id, matchPlayPlayerTeams, allPlayers)}
+                  onRename={(name) => onRenameMatchPlayTeam(team.id, name)}
+                  onDelete={() => onDeleteMatchPlayTeam(team.id)}
+                  amIOnTeam={playerId != null && matchPlayPlayerTeams[playerId] === team.id}
+                  onToggleMe={
+                    playerId
+                      ? () =>
+                          onSetMatchPlayPlayerTeam(
+                            playerId,
+                            matchPlayPlayerTeams[playerId] === team.id ? null : team.id,
+                          )
+                      : undefined
+                  }
+                />
+              ))}
+              <Pressable style={styles.settingsAddRow} onPress={onCreateMatchPlayTeam}>
+                <Text style={styles.settingsAddRowText}>+ New Team</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
       )}
 
-      <SectionHeader
-        title="Skins"
-        open={skinsOpen}
-        onToggle={() => setSkinsOpen((prev) => !prev)}
-        summary={skinsBets.length > 0 ? `${skinsBets.length} bet${skinsBets.length === 1 ? '' : 's'}` : 'Not used'}
-      />
-      {skinsOpen && (
-        <>
-          {skinsBets.map((bet) => (
-            <SkinsBetSettingsRow
-              key={bet.id}
-              bet={bet}
-              onRename={(name) => onRenameSkinsBet(bet.id, name)}
-              onSetCarryover={(carryover) => onSetSkinsBetCarryover(bet.id, carryover)}
-              onSetNet={(net) => onSetSkinsBetNet(bet.id, net)}
-              onSetValuePerSkin={(value) => onSetSkinsBetValuePerSkin(bet.id, value)}
-              onSetPayoutMode={(mode) => onSetSkinsBetPayoutMode(bet.id, mode)}
-              onSetBuyIn={(value) => onSetSkinsBetBuyIn(bet.id, value)}
-              onDelete={() => onDeleteSkinsBet(bet.id)}
-              onManagePlayers={() => setRosterModal({ betType: 'skins', betId: bet.id })}
-              allPlayers={allPlayers}
-              amIIn={playerId != null && bet.playerIds.includes(playerId)}
-              onToggleMe={
-                playerId ? () => onSetPlayerInSkinsBet(bet.id, playerId, !bet.playerIds.includes(playerId)) : undefined
-              }
-            />
-          ))}
-          <Pressable style={styles.settingsAddRow} onPress={onCreateSkinsBet}>
-            <Text style={styles.settingsAddRowText}>+ New Skins Bet</Text>
-          </Pressable>
-        </>
+      {skinsBets.length > 0 && (
+        <View style={styles.betCardAccent}>
+          <SectionHeader
+            tone="accent"
+            title="Skins"
+            open={skinsOpen}
+            onToggle={() => setSkinsOpen((prev) => !prev)}
+            summary={`${skinsBets.length} bet${skinsBets.length === 1 ? '' : 's'}`}
+          />
+          {skinsOpen && (
+            <View style={styles.betCardBody}>
+              {skinsBets.map((bet) => (
+                <SkinsBetSettingsRow
+                  key={bet.id}
+                  bet={bet}
+                  onRename={(name) => onRenameSkinsBet(bet.id, name)}
+                  onSetCarryover={(carryover) => onSetSkinsBetCarryover(bet.id, carryover)}
+                  onSetNet={(net) => onSetSkinsBetNet(bet.id, net)}
+                  onSetValuePerSkin={(value) => onSetSkinsBetValuePerSkin(bet.id, value)}
+                  onSetPayoutMode={(mode) => onSetSkinsBetPayoutMode(bet.id, mode)}
+                  onSetBuyIn={(value) => onSetSkinsBetBuyIn(bet.id, value)}
+                  onDelete={() => onDeleteSkinsBet(bet.id)}
+                  onManagePlayers={() => setRosterModal({ betType: 'skins', betId: bet.id })}
+                  allPlayers={allPlayers}
+                  amIIn={playerId != null && bet.playerIds.includes(playerId)}
+                  onToggleMe={
+                    playerId ? () => onSetPlayerInSkinsBet(bet.id, playerId, !bet.playerIds.includes(playerId)) : undefined
+                  }
+                />
+              ))}
+              <Pressable style={styles.settingsAddRow} onPress={onCreateSkinsBet}>
+                <Text style={styles.settingsAddRowText}>+ New Skins Bet</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
       )}
 
-      <SectionHeader
-        title="Stroke Play"
-        open={strokePlayOpen}
-        onToggle={() => setStrokePlayOpen((prev) => !prev)}
-        summary={
-          strokePlayBets.length > 0 ? `${strokePlayBets.length} bet${strokePlayBets.length === 1 ? '' : 's'}` : 'Not used'
-        }
-      />
-      {strokePlayOpen && (
-        <>
-          {strokePlayBets.map((bet) => (
-            <StrokePlaySettingsRow
-              key={bet.id}
-              bet={bet}
-              onRename={(name) => onRenameStrokePlayBet(bet.id, name)}
-              onSetNet={(net) => onSetStrokePlayBetNet(bet.id, net)}
-              onSetPayoutMode={(mode) => onSetStrokePlayBetPayoutMode(bet.id, mode)}
-              onSetValuePerStroke={(value) => onSetStrokePlayBetValuePerStroke(bet.id, value)}
-              onSetBuyIn={(value) => onSetStrokePlayBetBuyIn(bet.id, value)}
-              onDelete={() => onDeleteStrokePlayBet(bet.id)}
-              onManagePlayers={() => setRosterModal({ betType: 'strokePlay', betId: bet.id })}
-              allPlayers={allPlayers}
-              amIIn={playerId != null && bet.playerIds.includes(playerId)}
-              onToggleMe={
-                playerId
-                  ? () => onSetPlayerInStrokePlayBet(bet.id, playerId, !bet.playerIds.includes(playerId))
-                  : undefined
-              }
-            />
-          ))}
-          <Pressable style={styles.settingsAddRow} onPress={onCreateStrokePlayBet}>
-            <Text style={styles.settingsAddRowText}>+ New Stroke Play Bet</Text>
-          </Pressable>
-        </>
+      {strokePlayBets.length > 0 && (
+        <View style={styles.betCardAccent}>
+          <SectionHeader
+            tone="accent"
+            title="Stroke Play"
+            open={strokePlayOpen}
+            onToggle={() => setStrokePlayOpen((prev) => !prev)}
+            summary={`${strokePlayBets.length} bet${strokePlayBets.length === 1 ? '' : 's'}`}
+          />
+          {strokePlayOpen && (
+            <View style={styles.betCardBody}>
+              {strokePlayBets.map((bet) => (
+                <StrokePlaySettingsRow
+                  key={bet.id}
+                  bet={bet}
+                  onRename={(name) => onRenameStrokePlayBet(bet.id, name)}
+                  onSetNet={(net) => onSetStrokePlayBetNet(bet.id, net)}
+                  onSetPayoutMode={(mode) => onSetStrokePlayBetPayoutMode(bet.id, mode)}
+                  onSetValuePerStroke={(value) => onSetStrokePlayBetValuePerStroke(bet.id, value)}
+                  onSetBuyIn={(value) => onSetStrokePlayBetBuyIn(bet.id, value)}
+                  onDelete={() => onDeleteStrokePlayBet(bet.id)}
+                  onManagePlayers={() => setRosterModal({ betType: 'strokePlay', betId: bet.id })}
+                  allPlayers={allPlayers}
+                  amIIn={playerId != null && bet.playerIds.includes(playerId)}
+                  onToggleMe={
+                    playerId
+                      ? () => onSetPlayerInStrokePlayBet(bet.id, playerId, !bet.playerIds.includes(playerId))
+                      : undefined
+                  }
+                />
+              ))}
+              <Pressable style={styles.settingsAddRow} onPress={onCreateStrokePlayBet}>
+                <Text style={styles.settingsAddRowText}>+ New Stroke Play Bet</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
       )}
 
-      <SectionHeader
-        title="Birdies"
-        open={birdiesOpen}
-        onToggle={() => setBirdiesOpen((prev) => !prev)}
-        summary={birdiesBets.length > 0 ? `${birdiesBets.length} bet${birdiesBets.length === 1 ? '' : 's'}` : 'Not used'}
-      />
-      {birdiesOpen && (
-        <>
-          {birdiesBets.map((bet) => (
-            <BirdiesSettingsRow
-              key={bet.id}
-              bet={bet}
-              onRename={(name) => onRenameBirdiesBet(bet.id, name)}
-              onSetNet={(net) => onSetBirdiesBetNet(bet.id, net)}
-              onSetAmount={(value) => onSetBirdiesBetAmount(bet.id, value)}
-              onDelete={() => onDeleteBirdiesBet(bet.id)}
-              onManagePlayers={() => setRosterModal({ betType: 'birdies', betId: bet.id })}
-              allPlayers={allPlayers}
-              amIIn={playerId != null && bet.playerIds.includes(playerId)}
-              onToggleMe={
-                playerId ? () => onSetPlayerInBirdiesBet(bet.id, playerId, !bet.playerIds.includes(playerId)) : undefined
-              }
-            />
-          ))}
-          <Pressable style={styles.settingsAddRow} onPress={onCreateBirdiesBet}>
-            <Text style={styles.settingsAddRowText}>+ New Birdies Bet</Text>
-          </Pressable>
-        </>
+      {birdiesBets.length > 0 && (
+        <View style={styles.betCardAccent}>
+          <SectionHeader
+            tone="accent"
+            title="Birdies"
+            open={birdiesOpen}
+            onToggle={() => setBirdiesOpen((prev) => !prev)}
+            summary={`${birdiesBets.length} bet${birdiesBets.length === 1 ? '' : 's'}`}
+          />
+          {birdiesOpen && (
+            <View style={styles.betCardBody}>
+              {birdiesBets.map((bet) => (
+                <BirdiesSettingsRow
+                  key={bet.id}
+                  bet={bet}
+                  onRename={(name) => onRenameBirdiesBet(bet.id, name)}
+                  onSetNet={(net) => onSetBirdiesBetNet(bet.id, net)}
+                  onSetAmount={(value) => onSetBirdiesBetAmount(bet.id, value)}
+                  onDelete={() => onDeleteBirdiesBet(bet.id)}
+                  onManagePlayers={() => setRosterModal({ betType: 'birdies', betId: bet.id })}
+                  allPlayers={allPlayers}
+                  amIIn={playerId != null && bet.playerIds.includes(playerId)}
+                  onToggleMe={
+                    playerId ? () => onSetPlayerInBirdiesBet(bet.id, playerId, !bet.playerIds.includes(playerId)) : undefined
+                  }
+                />
+              ))}
+              <Pressable style={styles.settingsAddRow} onPress={onCreateBirdiesBet}>
+                <Text style={styles.settingsAddRowText}>+ New Birdies Bet</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
       )}
 
-      <SectionHeader
-        title="Doubles"
-        open={doublesOpen}
-        onToggle={() => setDoublesOpen((prev) => !prev)}
-        summary={doublesBets.length > 0 ? `${doublesBets.length} bet${doublesBets.length === 1 ? '' : 's'}` : 'Not used'}
-      />
-      {doublesOpen && (
-        <>
-          {doublesBets.map((bet) => (
-            <DoublesSettingsRow
-              key={bet.id}
-              bet={bet}
-              onRename={(name) => onRenameDoublesBet(bet.id, name)}
-              onSetNet={(net) => onSetDoublesBetNet(bet.id, net)}
-              onSetAmount={(value) => onSetDoublesBetAmount(bet.id, value)}
-              onDelete={() => onDeleteDoublesBet(bet.id)}
-              onManagePlayers={() => setRosterModal({ betType: 'doubles', betId: bet.id })}
-              allPlayers={allPlayers}
-              amIIn={playerId != null && bet.playerIds.includes(playerId)}
-              onToggleMe={
-                playerId ? () => onSetPlayerInDoublesBet(bet.id, playerId, !bet.playerIds.includes(playerId)) : undefined
-              }
-            />
-          ))}
-          <Pressable style={styles.settingsAddRow} onPress={onCreateDoublesBet}>
-            <Text style={styles.settingsAddRowText}>+ New Doubles Bet</Text>
-          </Pressable>
-        </>
+      {doublesBets.length > 0 && (
+        <View style={styles.betCardAccent}>
+          <SectionHeader
+            tone="accent"
+            title="Doubles"
+            open={doublesOpen}
+            onToggle={() => setDoublesOpen((prev) => !prev)}
+            summary={`${doublesBets.length} bet${doublesBets.length === 1 ? '' : 's'}`}
+          />
+          {doublesOpen && (
+            <View style={styles.betCardBody}>
+              {doublesBets.map((bet) => (
+                <DoublesSettingsRow
+                  key={bet.id}
+                  bet={bet}
+                  onRename={(name) => onRenameDoublesBet(bet.id, name)}
+                  onSetNet={(net) => onSetDoublesBetNet(bet.id, net)}
+                  onSetAmount={(value) => onSetDoublesBetAmount(bet.id, value)}
+                  onDelete={() => onDeleteDoublesBet(bet.id)}
+                  onManagePlayers={() => setRosterModal({ betType: 'doubles', betId: bet.id })}
+                  allPlayers={allPlayers}
+                  amIIn={playerId != null && bet.playerIds.includes(playerId)}
+                  onToggleMe={
+                    playerId ? () => onSetPlayerInDoublesBet(bet.id, playerId, !bet.playerIds.includes(playerId)) : undefined
+                  }
+                />
+              ))}
+              <Pressable style={styles.settingsAddRow} onPress={onCreateDoublesBet}>
+                <Text style={styles.settingsAddRowText}>+ New Doubles Bet</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
       )}
 
       <BetRosterModal
@@ -1713,12 +1791,18 @@ function BetRosterModal({
 // row instead of forcing a scroll past inputs nobody's touching.
 function SectionHeader({
   title,
+  tone,
   open,
   onToggle,
   summary,
   rightExtra,
 }: {
   title: string;
+  // Nassau/Match Play get the deep green "primary" treatment; Skins,
+  // Stroke Play, Birdies and Doubles get the gold "accent" treatment -
+  // this is the whole color signal that tells them apart while scrolling
+  // past several collapsed cards.
+  tone: 'primary' | 'accent';
   open: boolean;
   onToggle: () => void;
   summary: string;
@@ -1728,9 +1812,12 @@ function SectionHeader({
   rightExtra?: ReactNode;
 }) {
   return (
-    <Pressable style={styles.sectionHeader} onPress={onToggle}>
+    <Pressable
+      style={[styles.sectionHeader, tone === 'primary' ? styles.sectionHeaderPrimary : styles.sectionHeaderAccent]}
+      onPress={onToggle}
+    >
       <View style={styles.sectionHeaderLeft}>
-        <Text style={styles.settingsHeading}>{title}</Text>
+        <Text style={styles.sectionHeaderTitle}>{title}</Text>
         {rightExtra}
       </View>
       <View style={styles.sectionHeaderRight}>
@@ -1878,7 +1965,7 @@ function SkinsBetSettingsRow({
   // individual participants after) - Skins has no team, so it goes
   // straight from options to the "Add me" row.
   return (
-    <View style={styles.skinsSettingsCard}>
+    <View style={styles.betItemCard}>
       <View style={styles.settingsRow}>
         <TextInput
           style={styles.settingsNameInput}
@@ -2065,7 +2152,7 @@ function StrokePlaySettingsRow({
   // Options/attributes, then individual participants (Stroke Play has no
   // team concept either).
   return (
-    <View style={styles.strokePlaySettingsCard}>
+    <View style={styles.betItemCard}>
       <View style={styles.settingsRow}>
         <TextInput
           style={styles.settingsNameInput}
@@ -2240,7 +2327,7 @@ function BirdiesSettingsRow({
   };
 
   return (
-    <View style={styles.birdiesSettingsCard}>
+    <View style={styles.betItemCard}>
       <View style={styles.settingsRow}>
         <TextInput
           style={styles.settingsNameInput}
@@ -2346,7 +2433,7 @@ function DoublesSettingsRow({
   };
 
   return (
-    <View style={styles.doublesSettingsCard}>
+    <View style={styles.betItemCard}>
       <View style={styles.settingsRow}>
         <TextInput
           style={styles.settingsNameInput}
@@ -2717,14 +2804,6 @@ const styles = StyleSheet.create({
   settingsContainer: {
     marginBottom: 8,
   },
-  settingsHeading: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  settingsHeadingSpaced: {
-    marginTop: 16,
-  },
   settingsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2754,7 +2833,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 13,
   },
+  // Same treatment as betItemCard below, in green - keeps a Nassau/Match
+  // Play team visually distinct from its neighbors the same way a Skins/
+  // Stroke Play/Birdies/Doubles bet is, using the "primary" half of the
+  // green/gold split instead of the "accent" half.
   settingsTeamCard: {
+    backgroundColor: '#fffdf7',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#1a7f37',
+    padding: 10,
     marginBottom: 8,
   },
   settingsRowSubtext: {
@@ -2787,25 +2875,95 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  // Gold instead of the blue this used to be - blue was the one color in
+  // this screen that didn't belong to the green/white/gold system.
   managePlayersChip: {
     alignSelf: 'flex-start',
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#3a6ea5',
+    borderColor: '#b8862f',
   },
   managePlayersChipText: {
-    color: '#3a6ea5',
+    color: '#b8862f',
     fontWeight: '600',
     fontSize: 12,
   },
+  // The "add a game" picker: compact pills for every game type that has
+  // nothing set up yet, so an unused bet type costs one small chip
+  // instead of a full header - and as more bet types get added to the
+  // app later, they just add another chip here rather than more scroll.
+  gamePicker: {
+    marginBottom: 18,
+  },
+  gamePickerLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#16513a',
+    marginBottom: 8,
+  },
+  gamePickerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  gamePickerChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#1a7f37',
+    backgroundColor: '#eaf7ee',
+  },
+  gamePickerChipText: {
+    color: '#16513a',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  // The colored card wrapping a whole game type - header bar plus body.
+  // Nassau/Match Play (the two primary formats) get the green version;
+  // Skins/Stroke Play/Birdies/Doubles (side action) get the gold one.
+  // overflow: hidden lets the header bar's square corners get clipped to
+  // match the card's own rounding, so the header never needs its own
+  // borderRadius.
+  betCardPrimary: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#1a7f37',
+  },
+  betCardAccent: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#b8862f',
+  },
+  betCardBody: {
+    backgroundColor: '#fffdf7',
+    padding: 12,
+  },
+  // A tappable, colored header bar - title on the left, a one-line summary
+  // and a chevron on the right - so a game with several teams/bets still
+  // collapses down to a single, clearly-colored row.
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  // #886a2a rather than the brighter #b8862f used for accent borders/
+  // chips elsewhere - a white title needs the darker gold to read at a
+  // comfortable contrast; the brighter gold stays for borders and small
+  // accents that don't carry text.
+  sectionHeaderPrimary: {
+    backgroundColor: '#1a7f37',
+  },
+  sectionHeaderAccent: {
+    backgroundColor: '#886a2a',
   },
   sectionHeaderLeft: {
     flexDirection: 'row',
@@ -2817,19 +2975,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  sectionHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
   sectionHeaderSummary: {
     fontSize: 12,
-    color: '#889',
+    color: 'rgba(255, 255, 255, 0.82)',
   },
   sectionChevron: {
     fontSize: 13,
-    color: '#889',
+    color: '#fff',
   },
-  skinsSettingsCard: {
-    backgroundColor: '#fff6e8',
+  // One shared card for every individual Skins/Stroke Play/Birdies/
+  // Doubles bet (there can be more than one of the same type), replacing
+  // four unrelated pastel hues that didn't share a palette. White body,
+  // thin gold left edge - separates bets from each other without
+  // competing with the gold header bar above them.
+  betItemCard: {
+    backgroundColor: '#fff',
     borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#b8862f',
     padding: 10,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   skinsSettingsOptionsRow: {
     flexDirection: 'row',
@@ -2838,24 +3008,12 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 6,
   },
-  strokePlaySettingsCard: {
-    backgroundColor: '#eaf3fb',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-  },
   strokePlaySettingsOptionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 6,
-  },
-  birdiesSettingsCard: {
-    backgroundColor: '#eaf7ee',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
   },
   birdiesSettingsOptionsRow: {
     flexDirection: 'row',
@@ -2864,12 +3022,6 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 6,
   },
-  doublesSettingsCard: {
-    backgroundColor: '#fbeceb',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-  },
   doublesSettingsOptionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2877,6 +3029,7 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 6,
   },
+
   betHint: {
     color: '#889',
     fontSize: 11,
