@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, Modal, ScrollView, Alert } from 'react-native';
 import {
   useRoundState,
   RyderCupBet,
   RyderCupPairMatch,
   RyderCupSinglesMatch,
+  RyderCupAltShotFormat,
   Player,
   formatStakeAmount,
+  ryderCupAltShotFormatLabel,
 } from '../state/useRoundState';
 
 interface RyderCupBetSettingsProps {
@@ -29,6 +31,7 @@ export default function RyderCupBetSettings({ bet, allPlayers }: RyderCupBetSett
   const deleteRyderCupBet = useRoundState((state) => state.deleteRyderCupBet);
   const setRyderCupBuyIn = useRoundState((state) => state.setRyderCupBuyIn);
   const setRyderCupTeamName = useRoundState((state) => state.setRyderCupTeamName);
+  const setRyderCupAltShotFormat = useRoundState((state) => state.setRyderCupAltShotFormat);
   const setPlayerInRyderCupTeam = useRoundState((state) => state.setPlayerInRyderCupTeam);
   const addPairMatch = useRoundState((state) => state.addPairMatch);
   const removePairMatch = useRoundState((state) => state.removePairMatch);
@@ -41,6 +44,7 @@ export default function RyderCupBetSettings({ bet, allPlayers }: RyderCupBetSett
   const [buyInDraft, setBuyInDraft] = useState(String(bet.buyIn));
   const [buyInFocused, setBuyInFocused] = useState(false);
   const [matchBuilderSegment, setMatchBuilderSegment] = useState<'bestBall' | 'altShot' | 'singles' | null>(null);
+  const altShotLabel = ryderCupAltShotFormatLabel(bet.altShotFormat);
 
   const commitName = () => {
     const trimmed = nameDraft.trim();
@@ -126,7 +130,7 @@ export default function RyderCupBetSettings({ bet, allPlayers }: RyderCupBetSett
       </View>
 
       <Text style={styles.hint}>
-        18-hole format: holes 1-6 Best Ball, 7-12 Modified Alternate Shot, 13-18 Singles.
+        {`18-hole format: holes 1-6 Best Ball, 7-12 ${altShotLabel}, 13-18 Singles.`}
       </Text>
 
       <View style={styles.buyInRow}>
@@ -204,14 +208,38 @@ export default function RyderCupBetSettings({ bet, allPlayers }: RyderCupBetSett
         onRemove={(matchId) => handleRemovePairMatch('bestBall', matchId)}
         addDisabled={bet.teamAPlayerIds.length < 2 || bet.teamBPlayerIds.length < 2}
       />
+      <View style={styles.formatToggleRow}>
+        <Text style={styles.formatToggleLabel}>Holes 7-12 format</Text>
+        <Pressable
+          style={[styles.formatToggleChip, bet.altShotFormat === 'altShot' && styles.formatToggleChipActive]}
+          onPress={() => setRyderCupAltShotFormat(bet.id, 'altShot')}
+        >
+          <Text
+            style={[styles.formatToggleChipText, bet.altShotFormat === 'altShot' && styles.formatToggleChipTextActive]}
+          >
+            Alt Shot
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.formatToggleChip, bet.altShotFormat === 'scramble' && styles.formatToggleChipActive]}
+          onPress={() => setRyderCupAltShotFormat(bet.id, 'scramble')}
+        >
+          <Text
+            style={[styles.formatToggleChipText, bet.altShotFormat === 'scramble' && styles.formatToggleChipTextActive]}
+          >
+            Scramble
+          </Text>
+        </Pressable>
+      </View>
       <MatchSegmentSection
-        title="Modified Alternate Shot (holes 7-12)"
+        title={`${altShotLabel} (holes 7-12)`}
         matches={bet.altShotMatches}
         isSingles={false}
         allPlayers={allPlayers}
         onAdd={() => setMatchBuilderSegment('altShot')}
         onRemove={(matchId) => handleRemovePairMatch('altShot', matchId)}
         addDisabled={bet.teamAPlayerIds.length < 2 || bet.teamBPlayerIds.length < 2}
+        noTopBorder
       />
       <MatchSegmentSection
         title="Singles (holes 13-18)"
@@ -226,6 +254,7 @@ export default function RyderCupBetSettings({ bet, allPlayers }: RyderCupBetSett
       <RyderCupMatchBuilderModal
         visible={matchBuilderSegment != null}
         segment={matchBuilderSegment ?? 'bestBall'}
+        altShotLabel={altShotLabel}
         teamAName={bet.teamAName}
         teamBName={bet.teamBName}
         teamAPlayerIds={bet.teamAPlayerIds}
@@ -251,6 +280,7 @@ function MatchSegmentSection({
   onAdd,
   onRemove,
   addDisabled,
+  noTopBorder,
 }: {
   title: string;
   matches: (RyderCupPairMatch | RyderCupSinglesMatch)[];
@@ -259,9 +289,10 @@ function MatchSegmentSection({
   onAdd: () => void;
   onRemove: (matchId: string) => void;
   addDisabled: boolean;
+  noTopBorder?: boolean;
 }) {
   return (
-    <View style={styles.segmentSection}>
+    <View style={[styles.segmentSection, noTopBorder && styles.segmentSectionNoTopBorder]}>
       <Text style={styles.segmentTitle}>{title}</Text>
       {matches.length === 0 && <Text style={styles.hint}>No matches yet</Text>}
       {matches.map((match) => {
@@ -306,6 +337,7 @@ function MatchSegmentSection({
 function RyderCupMatchBuilderModal({
   visible,
   segment,
+  altShotLabel,
   teamAName,
   teamBName,
   teamAPlayerIds,
@@ -317,6 +349,7 @@ function RyderCupMatchBuilderModal({
 }: {
   visible: boolean;
   segment: 'bestBall' | 'altShot' | 'singles';
+  altShotLabel: string;
   teamAName: string;
   teamBName: string;
   teamAPlayerIds: string[];
@@ -330,14 +363,18 @@ function RyderCupMatchBuilderModal({
   const [teamASelected, setTeamASelected] = useState<string[]>([]);
   const [teamBSelected, setTeamBSelected] = useState<string[]>([]);
 
-  // Resets whenever the modal opens (or is opened for a different
-  // segment) rather than carrying over a stale pick from last time.
-  const [openedFor, setOpenedFor] = useState<string | null>(null);
-  const key = `${visible}:${segment}`;
-  if (visible && key !== openedFor) {
-    setOpenedFor(key);
+  // Resets every time the modal opens - including reopening for the same
+  // segment twice in a row (e.g. adding two Singles matches back to
+  // back) - rather than carrying over a stale pick from last time. A
+  // ref tracking the open/closed transition itself, not a key keyed on
+  // segment, is what makes the same-segment-twice case reset correctly.
+  const wasVisibleRef = useRef(false);
+  if (visible && !wasVisibleRef.current) {
+    wasVisibleRef.current = true;
     if (teamASelected.length > 0) setTeamASelected([]);
     if (teamBSelected.length > 0) setTeamBSelected([]);
+  } else if (!visible && wasVisibleRef.current) {
+    wasVisibleRef.current = false;
   }
 
   const toggle = (list: string[], setList: (ids: string[]) => void, id: string) => {
@@ -360,7 +397,7 @@ function RyderCupMatchBuilderModal({
   };
 
   const title =
-    segment === 'bestBall' ? 'Best Ball Match' : segment === 'altShot' ? 'Modified Alternate Shot Match' : 'Singles Match';
+    segment === 'bestBall' ? 'Best Ball Match' : segment === 'altShot' ? `${altShotLabel} Match` : 'Singles Match';
   const subtitle = picksPerSide === 1 ? 'Pick 1 player from each side' : 'Pick 2 players from each side';
 
   return (
@@ -542,11 +579,51 @@ const styles = StyleSheet.create({
   rosterToggleTextActive: {
     color: '#fff',
   },
+  formatToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  formatToggleLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334',
+    marginRight: 4,
+  },
+  formatToggleChip: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#f5f5f5',
+  },
+  formatToggleChipActive: {
+    backgroundColor: '#8a5cbf',
+    borderColor: '#8a5cbf',
+  },
+  formatToggleChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#556',
+  },
+  formatToggleChipTextActive: {
+    color: '#fff',
+  },
   segmentSection: {
     marginTop: 14,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#eee',
+  },
+  segmentSectionNoTopBorder: {
+    marginTop: 6,
+    paddingTop: 0,
+    borderTopWidth: 0,
   },
   segmentTitle: {
     fontSize: 12,

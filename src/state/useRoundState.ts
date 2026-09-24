@@ -329,20 +329,29 @@ export interface RyderCupSinglesMatch {
   teamBPlayerId: string;
 }
 
+export type RyderCupAltShotFormat = 'altShot' | 'scramble';
+
 // A single Ryder Cup bet - two named sides, a flat per-player buy-in
 // (winner-take-all, not a $ value per point - see computeRyderCupForBet),
 // and three independent lists of matches, one per segment. A segment
 // with no matches in it simply contributes no points to either side -
 // nothing forces every segment to be filled in before the round starts.
 // Segments always run holes 1-6 (Best Ball), 7-12 (Modified Alternate
-// Shot), 13-18 (Singles) - see RYDER_CUP_SEGMENT_HOLES - since the
-// format needs a real 18 holes, this bet type isn't offered on a 9-hole
-// round (see RoundPrepScreen's game picker).
+// Shot or Scramble - see altShotFormat), 13-18 (Singles) - see
+// RYDER_CUP_SEGMENT_HOLES - since the format needs a real 18 holes,
+// this bet type isn't offered on a 9-hole round (see RoundPrepScreen's
+// game picker).
 export interface RyderCupBet {
   id: string;
   name: string;
   teamAName: string;
   teamBName: string;
+  // Which real-world format the middle segment (holes 7-12) actually
+  // is - Scramble scores exactly like Modified Alternate Shot does (one
+  // shared team score per hole, see altShotMatches/ryderCupAltShotScores),
+  // so this only changes labels, never the data shape or the scoring
+  // engine (see computeRyderCupForBet).
+  altShotFormat: RyderCupAltShotFormat;
   // Flat amount every player on both sides puts into the pot; the side
   // with more total points at the end splits it, an overall tie refunds
   // everyone their own buy-in.
@@ -371,6 +380,15 @@ export const RYDER_CUP_SEGMENT_LABELS: Record<'bestBall' | 'altShot' | 'singles'
   altShot: 'Modified Alternate Shot',
   singles: 'Singles',
 };
+
+// The middle segment's display name depends on which format the bet
+// picked (see RyderCupBet.altShotFormat) - both score identically, so
+// this is the one place that decides how it reads everywhere else
+// (RoundPrepScreen's settings card and match builder, ScoreScreen's
+// alt-shot card).
+export function ryderCupAltShotFormatLabel(format: RyderCupAltShotFormat): string {
+  return format === 'scramble' ? 'Scramble' : 'Modified Alternate Shot';
+}
 
 export interface RyderCupMatchResult {
   id: string;
@@ -1161,6 +1179,7 @@ interface RoundState {
   deleteRyderCupBet: (betId: string) => Promise<void>;
   setRyderCupBuyIn: (betId: string, buyIn: number) => Promise<void>;
   setRyderCupTeamName: (betId: string, side: 'A' | 'B', name: string) => Promise<void>;
+  setRyderCupAltShotFormat: (betId: string, format: RyderCupAltShotFormat) => Promise<void>;
   // Adding a player is additive; removing one also drops any match on
   // either segment that already had them slotted in - see the action's
   // own comment for why a stale match can't just be left in place.
@@ -3051,6 +3070,7 @@ interface RyderCupBetSnapshotValue {
   teamAName?: string;
   teamBName?: string;
   buyIn?: number;
+  altShotFormat?: string;
   createdAt?: number;
   teamA?: Record<string, boolean> | null;
   teamB?: Record<string, boolean> | null;
@@ -3090,6 +3110,7 @@ function ryderCupBetsFromSnapshotValue(value: Record<string, RyderCupBetSnapshot
       teamAName: b.teamAName ?? 'Team A',
       teamBName: b.teamBName ?? 'Team B',
       buyIn: b.buyIn ?? 0,
+      altShotFormat: (b.altShotFormat === 'scramble' ? 'scramble' : 'altShot') as RyderCupAltShotFormat,
       createdAt: b.createdAt ?? 0,
       teamAPlayerIds: b.teamA ? Object.keys(b.teamA) : [],
       teamBPlayerIds: b.teamB ? Object.keys(b.teamB) : [],
@@ -4249,6 +4270,7 @@ export const useRoundState = create<RoundState>((set, get) => ({
       teamAName: 'Team A',
       teamBName: 'Team B',
       buyIn: 0,
+      altShotFormat: 'altShot',
       createdAt: Date.now(),
     });
     return betId;
@@ -4277,6 +4299,12 @@ export const useRoundState = create<RoundState>((set, get) => ({
     if (!roundCode) return;
     const field = side === 'A' ? 'teamAName' : 'teamBName';
     await dbSet(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/${field}`), name);
+  },
+
+  setRyderCupAltShotFormat: async (betId, format) => {
+    const { roundCode } = get();
+    if (!roundCode) return;
+    await dbSet(ref(db, `rounds/${roundCode}/ryderCupBets/${betId}/altShotFormat`), format);
   },
 
   setPlayerInRyderCupTeam: async (betId, side, playerId, inTeam) => {

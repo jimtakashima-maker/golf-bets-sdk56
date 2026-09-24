@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { RyderCupBet, RyderCupPairMatch, Player } from '../state/useRoundState';
+import { RyderCupBet, RyderCupPairMatch, Player, ryderCupAltShotFormatLabel } from '../state/useRoundState';
 
 interface RyderCupAltShotCardProps {
   bet: RyderCupBet;
@@ -40,13 +40,14 @@ export default function RyderCupAltShotCard({
 
   const teamALabel = `${nameById(match.teamAPlayerIds[0])} & ${nameById(match.teamAPlayerIds[1])}`;
   const teamBLabel = `${nameById(match.teamBPlayerIds[0])} & ${nameById(match.teamBPlayerIds[1])}`;
+  const formatLabel = ryderCupAltShotFormatLabel(bet.altShotFormat);
 
   const valueA = scoresA?.[currentHole];
   const valueB = scoresB?.[currentHole];
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{'⛳ '}{bet.name} - Alternate Shot</Text>
+      <Text style={styles.title}>{'⛳ '}{bet.name} - {formatLabel}</Text>
       <AltShotStepperRow
         teamLabel={bet.teamAName}
         pairLabel={teamALabel}
