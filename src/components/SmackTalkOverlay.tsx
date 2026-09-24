@@ -26,8 +26,10 @@ export default function SmackTalkOverlay() {
     <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={clearSmackTalk}>
       <Pressable style={styles.backdrop} onPress={clearSmackTalk}>
         <Animated.View style={[styles.sticker, { transform: [{ scale }, { rotate: '-4deg' }] }]}>
+          <Text style={styles.senderTag} numberOfLines={1}>
+            {incoming.senderName.toUpperCase()} SAYS
+          </Text>
           <Text style={styles.text}>{incoming.text}</Text>
-          <Text style={styles.sender}>{'\u2014'} {incoming.senderName}</Text>
         </Animated.View>
       </Pressable>
     </Modal>
@@ -56,16 +58,17 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 10,
   },
+  senderTag: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    color: '#c0392b',
+    marginBottom: 8,
+  },
   text: {
     fontSize: 28,
     fontWeight: '800',
     color: '#1a1a1a',
     textAlign: 'center',
-  },
-  sender: {
-    marginTop: 10,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#889',
   },
 });

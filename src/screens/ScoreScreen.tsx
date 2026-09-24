@@ -169,7 +169,7 @@ export default function ScoreScreen() {
             <Text style={styles.scorecardButtonText}>View Scorecard</Text>
           </Pressable>
           <Pressable style={styles.smackTalkButton} onPress={() => setSmackTalkOpen(true)}>
-            <Text style={styles.smackTalkButtonText}>Talk Trash</Text>
+            <Text style={styles.smackTalkButtonText}>Talk Smack</Text>
           </Pressable>
         </View>
 

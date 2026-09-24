@@ -53,7 +53,7 @@ export default function SmackTalkSender({ visible, onClose }: SmackTalkSenderPro
     <Modal visible={visible} animationType="fade" transparent onRequestClose={handleClose}>
       <Pressable style={styles.backdrop} onPress={handleClose} />
       <View style={styles.sheet}>
-        <Text style={styles.title}>Talk Trash</Text>
+        <Text style={styles.title}>Talk Smack</Text>
         <Text style={styles.subtitle}>
           Pops up full-screen on every other player's phone for a few seconds.
         </Text>
