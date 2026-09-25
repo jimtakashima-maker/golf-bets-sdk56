@@ -127,6 +127,7 @@ export default function RoundPrepScreen() {
   const setWolfBetValuePerHole = useRoundState((state) => state.setWolfBetValuePerHole);
   const setWolfBetLoneWolfMultiplier = useRoundState((state) => state.setWolfBetLoneWolfMultiplier);
   const setPlayerInWolfBet = useRoundState((state) => state.setPlayerInWolfBet);
+  const setPlayerInRyderCupTeam = useRoundState((state) => state.setPlayerInRyderCupTeam);
   const createRyderCupBet = useRoundState((state) => state.createRyderCupBet);
   const setPlayerHandicap = useRoundState((state) => state.setPlayerHandicap);
   const nassauAutoPress = useRoundState((state) => state.nassauAutoPress);
@@ -356,6 +357,12 @@ export default function RoundPrepScreen() {
     await setPlayerInWolfBet(betId, addModalPlayerId, true);
   };
 
+  const handleCreateRyderCupBetAndAssign = async () => {
+    if (!addModalPlayerId) return;
+    const betId = await createRyderCupBet();
+    await setPlayerInRyderCupTeam(betId, 'A', addModalPlayerId, true);
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Pressable style={styles.surpriseCard} onPress={() => setShowSurpriseModal(true)}>
@@ -565,6 +572,9 @@ export default function RoundPrepScreen() {
         onCreateDoublesBet={handleCreateDoublesBetAndAssign}
         onSetPlayerInWolfBet={setPlayerInWolfBet}
         onCreateWolfBet={handleCreateWolfBetAndAssign}
+        ryderCupBets={ryderCupBets}
+        onSetPlayerInRyderCupTeam={setPlayerInRyderCupTeam}
+        onCreateRyderCupBet={handleCreateRyderCupBetAndAssign}
         totalHoles={totalHoles}
         allPlayers={allPlayers}
         groups={groups}
@@ -911,6 +921,9 @@ function AddToModal({
   onCreateDoublesBet,
   onSetPlayerInWolfBet,
   onCreateWolfBet,
+  ryderCupBets,
+  onSetPlayerInRyderCupTeam,
+  onCreateRyderCupBet,
   totalHoles,
   allPlayers,
   groups,
@@ -945,6 +958,9 @@ function AddToModal({
   onCreateDoublesBet: () => void;
   onSetPlayerInWolfBet: (betId: string, playerId: string, inBet: boolean) => void;
   onCreateWolfBet: () => void;
+  ryderCupBets: RyderCupBet[];
+  onSetPlayerInRyderCupTeam: (betId: string, side: 'A' | 'B', playerId: string, inTeam: boolean) => void;
+  onCreateRyderCupBet: () => void;
   totalHoles: number;
   allPlayers: Player[];
   groups: Group[];
@@ -1145,6 +1161,56 @@ function AddToModal({
         })}
         <Pressable style={styles.modalAddRow} onPress={onCreateWolfBet}>
           <Text style={styles.modalAddRowText}>+ New Wolf Bet</Text>
+        </Pressable>
+
+        <Text style={[styles.modalSectionLabel, styles.modalSectionLabelSpaced]}>Ryder Cup Bets</Text>
+        {ryderCupBets.length === 0 && (
+          <Text style={styles.modalEmptyHint}>No Ryder Cup bets yet</Text>
+        )}
+        {ryderCupBets.map((bet) => {
+          const onA = bet.teamAPlayerIds.includes(player.id);
+          const onB = bet.teamBPlayerIds.includes(player.id);
+          // Moving to the other side is leave-old/join-new as two writes,
+          // same fire-and-forget pattern RyderCupBetSettings' own roster
+          // toggle uses - tapping the side you're already on takes you
+          // off the team entirely rather than being a no-op.
+          const setSide = (side: 'A' | 'B') => {
+            if (side === 'A') {
+              if (onB) onSetPlayerInRyderCupTeam(bet.id, 'B', player.id, false);
+              onSetPlayerInRyderCupTeam(bet.id, 'A', player.id, !onA);
+            } else {
+              if (onA) onSetPlayerInRyderCupTeam(bet.id, 'A', player.id, false);
+              onSetPlayerInRyderCupTeam(bet.id, 'B', player.id, !onB);
+            }
+          };
+          return (
+            <View key={bet.id} style={styles.modalRow}>
+              <Text style={styles.modalRowText}>{bet.name}</Text>
+              <View style={styles.rowSubtextInline}>
+                <Pressable
+                  style={[styles.modalTeamChip, onA && styles.modalRowSelected]}
+                  onPress={() => setSide('A')}
+                >
+                  <Text style={[styles.modalRowText, onA && styles.modalRowTextSelected]}>
+                    {onA ? '✓ ' : ''}
+                    {bet.teamAName}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.modalTeamChip, onB && styles.modalRowSelected]}
+                  onPress={() => setSide('B')}
+                >
+                  <Text style={[styles.modalRowText, onB && styles.modalRowTextSelected]}>
+                    {onB ? '✓ ' : ''}
+                    {bet.teamBName}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          );
+        })}
+        <Pressable style={styles.modalAddRow} onPress={onCreateRyderCupBet}>
+          <Text style={styles.modalAddRowText}>+ New Ryder Cup Bet</Text>
         </Pressable>
 
         <Pressable style={styles.modalCloseButton} onPress={onClose}>
@@ -3116,6 +3182,24 @@ const styles = StyleSheet.create({
     color: '#1a7f37',
     fontWeight: '600',
     fontSize: 13,
+  },
+  // The two Ryder Cup team choices sit side by side under the bet name,
+  // rather than as separate full-width modalRow entries the way a plain
+  // in/out toggle (Skins, Wolf, etc.) gets one - a bet has exactly two
+  // sides to pick between here, not an open-ended list.
+  rowSubtextInline: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+  },
+  modalTeamChip: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignItems: 'center',
   },
   modalCloseButton: {
     alignSelf: 'center',
