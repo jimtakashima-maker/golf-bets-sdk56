@@ -15,6 +15,13 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import AdminScreen from './src/screens/AdminScreen';
 import LegalScreen from './src/screens/LegalScreen';
 import { useRoundState, getSavedActiveRound, type SavedActiveRound } from './src/state/useRoundState';
+import { auth } from './src/lib/firebase';
+import { initSentry, setSentryUser, AppErrorBoundary } from './src/lib/sentry';
+
+// Reports crashes/errors and performance data to Sentry (see src/lib/sentry.ts
+// for the no-op-without-a-DSN behavior) - initialized once at module load,
+// before anything else in the app has a chance to render or throw.
+initSentry();
 
 type Screen =
   | 'splash'
@@ -71,6 +78,12 @@ function AppInner() {
   const rejoinRound = useRoundState((state) => state.rejoinRound);
   const profile = useRoundState((state) => state.profile);
   const [savedRound, setSavedRound] = useState<SavedActiveRound | null>(null);
+
+  // Attach whichever player is using this device to Sentry events, so a
+  // crash report says who hit it instead of just where.
+  useEffect(() => {
+    setSentryUser(auth.currentUser?.uid, profile?.displayName);
+  }, [profile]);
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
   // A round code pulled from a scanned QR / deep link, waiting to be handed
@@ -258,9 +271,9 @@ function AppInner() {
 // of AppInner is currently rendering.
 export default function App() {
   return (
-    <>
+    <AppErrorBoundary>
       <AppInner />
       <SmackTalkOverlay />
-    </>
+    </AppErrorBoundary>
   );
 }

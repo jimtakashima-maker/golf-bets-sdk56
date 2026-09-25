@@ -45,6 +45,7 @@
           "cameraPermission": "Used to photograph a course scorecard so hole par and handicap index can be read automatically."
         }
       ],
+      "@sentry/react-native/expo",
       [
         "expo-build-properties",
         {
