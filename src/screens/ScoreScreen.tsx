@@ -112,7 +112,9 @@ export default function ScoreScreen() {
     (bet) => bet.playerIds.length >= 3 && bet.playerIds.every((id) => activeGroupPlayerIds.has(id))
   );
 
+  const [bestBallStart, bestBallEnd] = RYDER_CUP_SEGMENT_HOLES.bestBall;
   const [altShotStart, altShotEnd] = RYDER_CUP_SEGMENT_HOLES.altShot;
+  const [singlesStart, singlesEnd] = RYDER_CUP_SEGMENT_HOLES.singles;
   const ryderCupIsOnlyBetActive =
     ryderCupBets.length > 0 &&
     teams.length === 0 &&
@@ -135,6 +137,20 @@ export default function ScoreScreen() {
             .map((match) => ({ bet, match }))
         )
       : [];
+
+  const activeGroupRyderCupBets = ryderCupBets.filter(
+    (bet) =>
+      bet.teamAPlayerIds.some((id) => activeGroupPlayerIds.has(id)) ||
+      bet.teamBPlayerIds.some((id) => activeGroupPlayerIds.has(id))
+  );
+  const ryderCupSegmentLabel =
+    activeGroupRyderCupBets.length === 0
+      ? null
+      : currentHole >= bestBallStart && currentHole <= bestBallEnd
+        ? 'Best Ball'
+        : currentHole >= singlesStart && currentHole <= singlesEnd
+          ? 'Singles'
+          : null;
 
   // Any player who didn't get an explicit score on the hole being left is
   // assumed to have made par - so tapping Next always locks in a real score
@@ -233,6 +249,12 @@ export default function ScoreScreen() {
           <Text style={styles.holeInfo}>
             Par {holes[currentHole].par} - Handicap Index {holes[currentHole].handicapIndex}
           </Text>
+        )}
+
+        {ryderCupSegmentLabel && (
+          <View style={styles.ryderCupSegmentBadgeWrap}>
+            <Text style={styles.ryderCupSegmentBadgeText}>Ryder Cup: {ryderCupSegmentLabel}</Text>
+          </View>
         )}
 
         {!hideIndividualScores && (
@@ -724,6 +746,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
     marginBottom: 8,
+  },
+  ryderCupSegmentBadgeWrap: {
+    alignSelf: 'center',
+    backgroundColor: '#8a5cbf',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  ryderCupSegmentBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   hostSwitcherWrap: {
     marginBottom: 12,

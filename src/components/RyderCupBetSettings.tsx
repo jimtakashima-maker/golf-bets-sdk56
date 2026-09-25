@@ -211,13 +211,26 @@ export default function RyderCupBetSettings({ bet, allPlayers }: RyderCupBetSett
       <View style={styles.formatToggleRow}>
         <Text style={styles.formatToggleLabel}>Holes 7-12 format</Text>
         <Pressable
+          style={[styles.formatToggleChip, bet.altShotFormat === 'straightAltShot' && styles.formatToggleChipActive]}
+          onPress={() => setRyderCupAltShotFormat(bet.id, 'straightAltShot')}
+        >
+          <Text
+            style={[
+              styles.formatToggleChipText,
+              bet.altShotFormat === 'straightAltShot' && styles.formatToggleChipTextActive,
+            ]}
+          >
+            Alt Shot
+          </Text>
+        </Pressable>
+        <Pressable
           style={[styles.formatToggleChip, bet.altShotFormat === 'altShot' && styles.formatToggleChipActive]}
           onPress={() => setRyderCupAltShotFormat(bet.id, 'altShot')}
         >
           <Text
             style={[styles.formatToggleChipText, bet.altShotFormat === 'altShot' && styles.formatToggleChipTextActive]}
           >
-            Alt Shot
+            Modified
           </Text>
         </Pressable>
         <Pressable
@@ -582,7 +595,9 @@ const styles = StyleSheet.create({
   formatToggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
+    rowGap: 6,
     marginTop: 14,
     paddingTop: 10,
     borderTopWidth: 1,

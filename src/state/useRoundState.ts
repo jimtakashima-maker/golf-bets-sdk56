@@ -329,7 +329,7 @@ export interface RyderCupSinglesMatch {
   teamBPlayerId: string;
 }
 
-export type RyderCupAltShotFormat = 'altShot' | 'scramble';
+export type RyderCupAltShotFormat = 'altShot' | 'straightAltShot' | 'scramble';
 
 // A single Ryder Cup bet - two named sides, a flat per-player buy-in
 // (winner-take-all, not a $ value per point - see computeRyderCupForBet),
@@ -387,7 +387,9 @@ export const RYDER_CUP_SEGMENT_LABELS: Record<'bestBall' | 'altShot' | 'singles'
 // (RoundPrepScreen's settings card and match builder, ScoreScreen's
 // alt-shot card).
 export function ryderCupAltShotFormatLabel(format: RyderCupAltShotFormat): string {
-  return format === 'scramble' ? 'Scramble' : 'Modified Alternate Shot';
+  if (format === 'scramble') return 'Scramble';
+  if (format === 'straightAltShot') return 'Alternate Shot';
+  return 'Modified Alternate Shot';
 }
 
 export interface RyderCupMatchResult {
@@ -3110,7 +3112,13 @@ function ryderCupBetsFromSnapshotValue(value: Record<string, RyderCupBetSnapshot
       teamAName: b.teamAName ?? 'Team A',
       teamBName: b.teamBName ?? 'Team B',
       buyIn: b.buyIn ?? 0,
-      altShotFormat: (b.altShotFormat === 'scramble' ? 'scramble' : 'altShot') as RyderCupAltShotFormat,
+      altShotFormat: (
+        b.altShotFormat === 'scramble'
+          ? 'scramble'
+          : b.altShotFormat === 'straightAltShot'
+            ? 'straightAltShot'
+            : 'altShot'
+      ) as RyderCupAltShotFormat,
       createdAt: b.createdAt ?? 0,
       teamAPlayerIds: b.teamA ? Object.keys(b.teamA) : [],
       teamBPlayerIds: b.teamB ? Object.keys(b.teamB) : [],
